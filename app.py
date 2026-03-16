@@ -5,6 +5,7 @@ Desktop app that syncs to-do items from a Notion page.
 
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -127,6 +128,7 @@ class TodoApp:
         self.client = NotionClient(token)
         self.todos = []
         self.filter_mode = "all"       # all | today | week
+        self._search_query = ""
 
         # Smart polling state
         self._focused = True
@@ -135,7 +137,13 @@ class TodoApp:
         self._current_refresh_ms = BASE_REFRESH_MS
         self._refresh_after_id = None
 
+        # System tray
+        self._tray_icon = None
+        self._minimized_to_tray = False
+
         self._build_ui()
+        self._bind_shortcuts()
+        self._setup_tray()
 
     # ── UI Construction ──────────────────────────────────────────────
 
@@ -145,6 +153,9 @@ class TodoApp:
         self.root.configure(bg=BG)
         self.root.geometry("620x780")
         self.root.minsize(420, 520)
+
+        # Minimize to tray on close instead of quitting
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Window icon (ST monogram)
         try:
@@ -191,8 +202,32 @@ class TodoApp:
         # Subtle border under header
         tk.Frame(header_outer, bg=BORDER, height=1).pack(fill="x")
 
+        # ── Progress bar (today's completion) ────────────────────────
+        self._progress_frame = tk.Frame(self.root, bg=BG, padx=20, pady=(8, 0))
+        self._progress_frame.pack(fill="x")
+
+        progress_inner = tk.Frame(self._progress_frame, bg=BG)
+        progress_inner.pack(fill="x")
+
+        self._progress_label = tk.Label(progress_inner, text="Today: 0/0",
+                                        font=(FONT_MONO, 9), fg=FG_DIM, bg=BG)
+        self._progress_label.pack(side="left")
+
+        self._progress_pct = tk.Label(progress_inner, text="",
+                                      font=(FONT_MONO, 9, "bold"), fg=ACCENT, bg=BG)
+        self._progress_pct.pack(side="right")
+
+        # Track bar — outer (bg) and inner (fill)
+        bar_outer = tk.Frame(self._progress_frame, bg=BG_SURFACE2, height=6)
+        bar_outer.pack(fill="x", pady=(4, 0))
+        bar_outer.pack_propagate(False)
+
+        self._progress_bar_outer = bar_outer
+        self._progress_bar = tk.Frame(bar_outer, bg=ACCENT, height=6)
+        self._progress_bar.place(relx=0, rely=0, relwidth=0, relheight=1)
+
         # ── Toolbar ──────────────────────────────────────────────────
-        toolbar = tk.Frame(self.root, bg=BG, padx=20, pady=10)
+        toolbar = tk.Frame(self.root, bg=BG, padx=20, pady=8)
         toolbar.pack(fill="x")
 
         filter_frame = tk.Frame(toolbar, bg=BG_SURFACE2, padx=2, pady=2)
@@ -224,6 +259,34 @@ class TodoApp:
             command=self._trigger_refresh,
         )
         refresh_btn.pack(side="right")
+
+        # ── Search box ───────────────────────────────────────────────
+        search_frame = tk.Frame(self.root, bg=BG, padx=20, pady=(0, 4))
+        search_frame.pack(fill="x")
+
+        search_border = tk.Frame(search_frame, bg=BORDER, padx=1, pady=1)
+        search_border.pack(fill="x")
+
+        search_inner = tk.Frame(search_border, bg=BG_SURFACE)
+        search_inner.pack(fill="x")
+
+        tk.Label(search_inner, text=" /", font=(FONT_MONO, 10), fg=FG_DIM,
+                 bg=BG_SURFACE).pack(side="left")
+
+        self._search_var = tk.StringVar()
+        self._search_var.trace_add("write", self._on_search_change)
+        self._search_entry = tk.Entry(
+            search_inner, textvariable=self._search_var,
+            font=(FONT, 10), bg=BG_SURFACE, fg=FG_TEXT,
+            insertbackground=FG_TEXT, relief="flat", bd=0,
+        )
+        self._search_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(2, 8))
+
+        self._search_clear = tk.Label(
+            search_inner, text="x", font=(FONT, 9), fg=FG_DIM,
+            bg=BG_SURFACE, cursor="hand2", padx=8,
+        )
+        self._search_clear.bind("<Button-1>", lambda e: self._clear_search())
 
         # ── Scrollable todo list ─────────────────────────────────────
         container = tk.Frame(self.root, bg=BG)
@@ -259,9 +322,126 @@ class TodoApp:
                                     fg=FG_DIM, bg=BG_SURFACE)
         self.count_label.pack(side="left")
 
+        self._shortcut_hint = tk.Label(
+            status_bar, text="Ctrl+F search  ·  Ctrl+R refresh  ·  Ctrl+1/2/3 filter",
+            font=(FONT, 8), fg="#475569", bg=BG_SURFACE,
+        )
+        self._shortcut_hint.pack(side="right")
+
     def _on_canvas_resize(self, event):
         """Keep scroll_frame filling the canvas width."""
         self.canvas.itemconfig(self._canvas_window, width=event.width)
+
+    # ── Keyboard Shortcuts ────────────────────────────────────────────
+
+    def _bind_shortcuts(self):
+        self.root.bind("<Control-r>", lambda e: self._trigger_refresh())
+        self.root.bind("<Control-f>", lambda e: self._focus_search())
+        self.root.bind("<Control-e>", lambda e: self._toggle_completed_section())
+        self.root.bind("<Control-Key-1>", lambda e: self._set_filter("all"))
+        self.root.bind("<Control-Key-2>", lambda e: self._set_filter("today"))
+        self.root.bind("<Control-Key-3>", lambda e: self._set_filter("week"))
+        self.root.bind("<Escape>", lambda e: self._on_escape())
+
+    def _focus_search(self):
+        self._search_entry.focus_set()
+
+    def _set_filter(self, mode):
+        self.filter_var.set(mode)
+        self._on_filter_change()
+
+    def _on_escape(self):
+        """Escape clears search if active, otherwise unfocuses."""
+        if self._search_var.get():
+            self._clear_search()
+        else:
+            self.root.focus_set()
+
+    # ── Search ────────────────────────────────────────────────────────
+
+    def _on_search_change(self, *args):
+        self._search_query = self._search_var.get().strip().lower()
+        # Show/hide clear button
+        if self._search_query:
+            self._search_clear.pack(side="right")
+        else:
+            self._search_clear.pack_forget()
+        self._render_todos()
+
+    def _clear_search(self):
+        self._search_var.set("")
+        self.root.focus_set()
+
+    # ── System Tray ───────────────────────────────────────────────────
+
+    def _setup_tray(self):
+        """Set up system tray icon using pystray (if available)."""
+        try:
+            import pystray
+            from PIL import Image
+            self._pystray = pystray
+            self._PIL_Image = Image
+
+            # Load icon for tray
+            icon_path = Path(__file__).parent / "icon.png"
+            if not icon_path.exists():
+                icon_path = Path(sys._MEIPASS) / "icon.png"
+            self._tray_image = Image.open(str(icon_path))
+
+            # Build tray icon (don't start yet — starts on minimize)
+            self._tray_ready = True
+        except ImportError:
+            self._tray_ready = False
+
+    def _on_close(self):
+        """Minimize to tray on close (if available), otherwise quit."""
+        if self._tray_ready:
+            self._minimize_to_tray()
+        else:
+            self._quit()
+
+    def _minimize_to_tray(self):
+        """Hide window and show tray icon."""
+        import pystray
+        self.root.withdraw()
+        self._minimized_to_tray = True
+
+        menu = pystray.Menu(
+            pystray.MenuItem("Open", self._restore_from_tray, default=True),
+            pystray.MenuItem("Refresh", lambda: self.root.after(0, self._trigger_refresh)),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Quit", self._quit_from_tray),
+        )
+
+        self._tray_icon = pystray.Icon(
+            "triumph-todos", self._tray_image, "Triumph Todos", menu,
+        )
+        threading.Thread(target=self._tray_icon.run, daemon=True).start()
+
+    def _restore_from_tray(self, icon=None, item=None):
+        """Restore window from tray."""
+        if self._tray_icon:
+            self._tray_icon.stop()
+            self._tray_icon = None
+        self._minimized_to_tray = False
+        self.root.after(0, self._do_restore)
+
+    def _do_restore(self):
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+        # Trigger refresh if stale
+        elapsed_ms = (time.time() - self._last_sync_time) * 1000
+        if elapsed_ms > FOCUS_STALE_MS:
+            self._trigger_refresh()
+
+    def _quit_from_tray(self, icon=None, item=None):
+        if self._tray_icon:
+            self._tray_icon.stop()
+        self.root.after(0, self._quit)
+
+    def _quit(self):
+        self.root.destroy()
 
     # ── Smart Polling ────────────────────────────────────────────────
 
@@ -353,7 +533,6 @@ class TodoApp:
     def _filter_todos(self):
         """Apply current filter and split into (active, completed_today) lists.
         Completed tasks from previous days are dropped entirely."""
-        import re
         today_str = datetime.now().strftime("%Y-%m-%d")
 
         # Apply date filter first
@@ -365,6 +544,11 @@ class TodoApp:
             monday = today - timedelta(days=today.weekday())
             sunday = monday + timedelta(days=6)
             source = [t for t in source if self._heading_in_range(t["heading"], monday, sunday)]
+
+        # Apply search filter
+        if self._search_query:
+            q = self._search_query
+            source = [t for t in source if q in t["text"].lower() or q in t["heading"].lower()]
 
         active = []
         completed_today = []
@@ -388,7 +572,6 @@ class TodoApp:
     @staticmethod
     def _heading_in_range(heading, start_date, end_date):
         """Check if heading contains a date within the given range."""
-        import re
         match = re.search(r'(\d{4}-\d{2}-\d{2})', heading)
         if match:
             try:
@@ -397,6 +580,33 @@ class TodoApp:
             except ValueError:
                 pass
         return False
+
+    # ── Progress Bar ──────────────────────────────────────────────────
+
+    def _update_progress(self, active_count, completed_count):
+        """Update the today's progress bar."""
+        total = active_count + completed_count
+        if total == 0:
+            self._progress_label.config(text="Today: no tasks")
+            self._progress_pct.config(text="")
+            self._progress_bar.place(relwidth=0)
+            return
+
+        pct = completed_count / total
+        self._progress_label.config(text=f"Today: {completed_count}/{total} done")
+        self._progress_pct.config(text=f"{int(pct * 100)}%")
+        self._progress_bar.place(relx=0, rely=0, relwidth=pct, relheight=1)
+
+        # Color shifts: low=dim, medium=blue, high=green
+        if pct >= 0.75:
+            self._progress_bar.config(bg=ACCENT)
+            self._progress_pct.config(fg=ACCENT)
+        elif pct >= 0.4:
+            self._progress_bar.config(bg=ACCENT2)
+            self._progress_pct.config(fg=ACCENT2)
+        else:
+            self._progress_bar.config(bg=FG_DIM)
+            self._progress_pct.config(fg=FG_DIM)
 
     # ── Rendering ────────────────────────────────────────────────────
 
@@ -407,12 +617,21 @@ class TodoApp:
 
         active, completed_today = self._filter_todos()
 
+        # Update progress bar with today's numbers (unfiltered by search)
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_active = sum(1 for t in self.todos
+                           if not t["checked"] and today_str in t["heading"])
+        today_done = sum(1 for t in self.todos
+                         if t["checked"] and today_str in t["heading"])
+        self._update_progress(today_active, today_done)
+
         if not active and not completed_today:
             empty = tk.Frame(self.scroll_frame, bg=BG, pady=60)
             empty.pack(fill="x")
-            tk.Label(empty, text="No to-dos", font=(FONT, 13), fg=FG_DIM, bg=BG).pack()
-            tk.Label(empty, text="Nothing here right now.",
-                     font=(FONT, 10), fg=BORDER, bg=BG).pack(pady=(4, 0))
+            msg = "No matches" if self._search_query else "No to-dos"
+            sub = "Try a different search." if self._search_query else "Nothing here right now."
+            tk.Label(empty, text=msg, font=(FONT, 13), fg=FG_DIM, bg=BG).pack()
+            tk.Label(empty, text=sub, font=(FONT, 10), fg=BORDER, bg=BG).pack(pady=(4, 0))
             self.count_label.config(text="0 items")
             return
 
