@@ -1,0 +1,16 @@
+# Build artifacts
+build/
+dist/
+*.spec
+*.pyc
+__pycache__/
+
+# Environment
+.env
+
+# Config files (user-specific)
+.triumph-todos/
+
+# Icon files (copied from another repo)
+icon.ico
+icon.png
