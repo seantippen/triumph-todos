@@ -203,8 +203,8 @@ class TodoApp:
         tk.Frame(header_outer, bg=BORDER, height=1).pack(fill="x")
 
         # ── Progress bar (today's completion) ────────────────────────
-        self._progress_frame = tk.Frame(self.root, bg=BG, padx=20, pady=(8, 0))
-        self._progress_frame.pack(fill="x")
+        self._progress_frame = tk.Frame(self.root, bg=BG, padx=20)
+        self._progress_frame.pack(fill="x", pady=(8, 0))
 
         progress_inner = tk.Frame(self._progress_frame, bg=BG)
         progress_inner.pack(fill="x")
@@ -261,8 +261,8 @@ class TodoApp:
         refresh_btn.pack(side="right")
 
         # ── Search box ───────────────────────────────────────────────
-        search_frame = tk.Frame(self.root, bg=BG, padx=20, pady=(0, 4))
-        search_frame.pack(fill="x")
+        search_frame = tk.Frame(self.root, bg=BG, padx=20)
+        search_frame.pack(fill="x", pady=(0, 4))
 
         search_border = tk.Frame(search_frame, bg=BORDER, padx=1, pady=1)
         search_border.pack(fill="x")
