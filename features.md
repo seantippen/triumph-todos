@@ -45,6 +45,9 @@
 - Sync status indicator (stale warning after 5 min)
 - Auto-refresh every 2 minutes, pauses when tab is hidden
 - Mobile-responsive down to 320px
+- **Dark/light mode** — toggle in header, persists via localStorage, follows style guide tokens
+- **Keyboard shortcuts** — N (add task), / (search), R (refresh), 1/2/3 (filter), L (toggle theme), Ctrl+Z (undo)
+- **Offline support** — service worker caches shell + last API response, works without network
 
 ## Infrastructure
 - Cloudflare Pages + Workers — global edge, sub-100ms responses

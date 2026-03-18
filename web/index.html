@@ -3,10 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#1a1f2e">
+    <meta name="theme-color" content="#1a1f2e" id="meta-theme-color">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>To-Do</title>
+    <script>
+        // Restore theme before paint to prevent flash
+        if (localStorage.getItem('todo-theme') === 'light') {
+            document.documentElement.classList.add('light');
+            document.addEventListener('DOMContentLoaded', function() {
+                var mc = document.getElementById('meta-theme-color');
+                if (mc) mc.content = '#f2f2f4';
+            });
+        }
+    </script>
     <link rel="manifest" href="/manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,6 +70,32 @@
                 --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
                 --shadow-md: 0 4px 12px oklch(0 0 0 / 0.4);
             }
+        }
+
+        /* ── Light Mode (style guide: class-based toggle) ── */
+        :root.light {
+            --color-accent: oklch(0.52 0.18 178);
+            --color-secondary: oklch(0.50 0.19 320);
+            --accent-muted: oklch(0.52 0.18 178 / 0.12);
+            --accent-subtle: oklch(0.52 0.18 178 / 0.06);
+            --color-bg: oklch(0.955 0.005 250);
+            --color-surface: oklch(1 0 0);
+            --color-surface-hover: oklch(0.97 0.003 250);
+            --color-surface-raised: oklch(1 0 0);
+            --color-surface-overlay: oklch(1 0 0);
+            --color-text: oklch(0.16 0.02 250);
+            --color-text-secondary: oklch(0.35 0.015 250);
+            --color-text-muted: oklch(0.50 0.01 250);
+            --color-text-disabled: oklch(0.68 0.005 250);
+            --color-border: oklch(0 0 0 / 0.08);
+            --color-border-emphasis: oklch(0 0 0 / 0.15);
+            --color-border-strong: oklch(0 0 0 / 0.25);
+            --color-success: oklch(0.52 0.17 145);
+            --color-warning: oklch(0.60 0.16 85);
+            --color-danger: oklch(0.52 0.19 25);
+            --color-heading: oklch(0.38 0.15 178);
+            --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.06);
+            --shadow-md: 0 4px 12px oklch(0 0 0 / 0.08);
         }
 
         @layer base {
@@ -117,6 +153,7 @@
                 margin: 0 calc(var(--space-md) * -1);
                 padding: 0 var(--space-md);
             }
+            :root.light header { background: oklch(0.955 0.005 250 / 0.85); }
             .accent-bar {
                 height: 3px;
                 background: linear-gradient(90deg, var(--color-accent), var(--color-secondary));
@@ -400,10 +437,10 @@
                 border-radius: 2px;
                 flex-shrink: 0;
             }
-            .todo-pip.pip-blue { background: oklch(0.62 0.28 264); }
-            .todo-pip.pip-purple { background: oklch(0.65 0.22 270); }
-            .todo-pip.pip-red { background: var(--color-danger); }
-            .todo-pip.pip-green { background: var(--color-accent); }
+            .todo-pip.pip-blue { background: oklch(0.65 0.28 260); }
+            .todo-pip.pip-purple { background: oklch(0.60 0.30 320); }
+            .todo-pip.pip-red { background: oklch(0.60 0.28 28); }
+            .todo-pip.pip-green { background: oklch(0.65 0.26 145); }
 
             /* ── Pip Color Menu ─────────────────────── */
             .pip-menu {
@@ -427,10 +464,10 @@
             }
             .pip-menu-dot:hover { transform: scale(1.2); }
             .pip-menu-dot.selected { border-color: var(--color-text); }
-            .pip-menu-dot.dot-green { background: var(--color-accent); }
-            .pip-menu-dot.dot-blue { background: oklch(0.62 0.28 264); }
-            .pip-menu-dot.dot-purple { background: oklch(0.65 0.22 270); }
-            .pip-menu-dot.dot-red { background: var(--color-danger); }
+            .pip-menu-dot.dot-green { background: oklch(0.65 0.26 145); }
+            .pip-menu-dot.dot-blue { background: oklch(0.65 0.28 260); }
+            .pip-menu-dot.dot-purple { background: oklch(0.60 0.30 320); }
+            .pip-menu-dot.dot-red { background: oklch(0.60 0.28 28); }
             .todo-check {
                 width: 22px;
                 height: 22px;
@@ -476,6 +513,7 @@
                 opacity: 0.7;
             }
             .todo-row.completed:hover { background: var(--color-surface); opacity: 1; }
+            :root.light .todo-row.completed:hover { opacity: 0.8; }
 
             /* ── Completed Toggle ────────────────────── */
             .completed-divider {
@@ -700,6 +738,29 @@
             .todo-row:hover .delete-btn { opacity: 1; }
             .delete-btn:hover { color: var(--color-danger); }
 
+            /* ── Theme Toggle ───────────────────────── */
+            .theme-toggle {
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 8px;
+                color: var(--color-text-secondary);
+                cursor: pointer;
+                transition: all var(--duration-fast) var(--ease-out);
+                font-size: 15px;
+            }
+            .theme-toggle:hover { color: var(--color-text); border-color: var(--color-border-emphasis); }
+            .theme-toggle:active { transform: scale(0.92); }
+
+            /* Light mode: soften grid overlay + noise */
+            :root.light body::before { opacity: 0.4; background: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size: 60px 60px; mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent); }
+            :root.light html::after { opacity: 0.01; }
+            :root.light .todo-row.completed { opacity: 0.6; }
+
             @media (prefers-reduced-motion: reduce) {
                 *, *::before, *::after {
                     animation-duration: 0.01ms !important;
@@ -720,6 +781,9 @@
                 </div>
                 <div class="header-right">
                     <span class="sync-status" id="sync-status"></span>
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
+                        <span id="theme-icon">☀</span>
+                    </button>
                     <button class="refresh-btn" id="refresh-btn" title="Refresh">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 8a5.5 5.5 0 0 1 9.3-4"/><path d="M13.5 8a5.5 5.5 0 0 1-9.3 4"/><path d="M11.5 1.5v3h3"/><path d="M4.5 14.5v-3h-3"/></svg>
                     </button>
@@ -761,6 +825,22 @@
         refreshBtn.addEventListener('click', function() {
             refreshBtn.classList.add('spinning');
             load();
+        });
+
+        // Theme toggle
+        var themeToggle = document.getElementById('theme-toggle');
+        var themeIcon = document.getElementById('theme-icon');
+        function updateThemeIcon() {
+            var isLight = document.documentElement.classList.contains('light');
+            themeIcon.textContent = isLight ? '\u263E' : '\u2600'; // ☾ moon when light (click=go dark), ☀ sun when dark (click=go light)
+        }
+        updateThemeIcon();
+        themeToggle.addEventListener('click', function() {
+            document.documentElement.classList.toggle('light');
+            var isLight = document.documentElement.classList.contains('light');
+            localStorage.setItem('todo-theme', isLight ? 'light' : 'dark');
+            document.getElementById('meta-theme-color').content = isLight ? '#f2f2f4' : '#1a1f2e';
+            updateThemeIcon();
         });
 
         function load() {
@@ -972,12 +1052,13 @@
             canvas.width = 32; canvas.height = 32;
             var ctx = canvas.getContext('2d');
             // Draw a rounded square background
-            ctx.fillStyle = '#1a1f2e';
+            var isLight = document.documentElement.classList.contains('light');
+            ctx.fillStyle = isLight ? '#f2f2f4' : '#1a1f2e';
             ctx.beginPath();
             ctx.roundRect(0, 0, 32, 32, 6);
             ctx.fill();
             // Draw a "T" letter
-            ctx.fillStyle = '#e0e0e0';
+            ctx.fillStyle = isLight ? '#2a2d3a' : '#e0e0e0';
             ctx.font = 'bold 20px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1064,6 +1145,33 @@
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                 e.preventDefault();
                 undoLast();
+                return;
+            }
+            // Skip shortcuts when typing in an input/editable
+            var tag = document.activeElement && document.activeElement.tagName;
+            var editable = document.activeElement && document.activeElement.contentEditable === 'true';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || editable) return;
+
+            if (e.key === 'n' || e.key === 'N') {
+                e.preventDefault();
+                var addInput = document.getElementById('add-task-input');
+                if (addInput) addInput.focus();
+            } else if (e.key === '/') {
+                e.preventDefault();
+                var si = app.querySelector('.search-input');
+                if (si) si.focus();
+            } else if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                refreshBtn.classList.add('spinning');
+                load();
+            } else if (e.key === '1') {
+                filterMode = 'all'; sessionStorage.setItem('todo-filter', filterMode); render();
+            } else if (e.key === '2') {
+                filterMode = 'today'; sessionStorage.setItem('todo-filter', filterMode); render();
+            } else if (e.key === '3') {
+                filterMode = 'week'; sessionStorage.setItem('todo-filter', filterMode); render();
+            } else if (e.key === 'l' || e.key === 'L') {
+                themeToggle.click();
             }
         });
 
@@ -1544,7 +1652,7 @@
             footer.appendChild(fc);
             var fn = document.createElement('span');
             fn.className = 'footer-note';
-            fn.textContent = '\u2318Z to undo \u00b7 Double-click to edit';
+            fn.textContent = '\u2318Z undo \u00b7 N add \u00b7 / search \u00b7 R refresh \u00b7 1-3 filter \u00b7 L theme';
             footer.appendChild(fn);
             frag.appendChild(footer);
 
@@ -1563,6 +1671,11 @@
         }
 
         load();
+
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function() {});
+        }
 
     })();
     </script>
