@@ -201,7 +201,41 @@ class NotionClient:
             parts.append(text)
         return "".join(parts).strip()
 
+    # ── Quick Tasks page ──────────────────────────────────────────────
+
+    def collect_quick_tasks(self, tasks_page_id):
+        """Fetch all to_do blocks from the Quick Tasks page."""
+        if not tasks_page_id:
+            return []
+        todos = []
+        children = self.get_all_block_children(tasks_page_id)
+        for block in children:
+            if block.get("type") == "to_do":
+                todos.append(self._parse_todo(block, "Quick Tasks"))
+        return todos
+
     # ── Write-back ───────────────────────────────────────────────────
+
+    def add_todo(self, tasks_page_id, text):
+        """Append a new to_do block to the Quick Tasks page.
+        Returns the parsed todo dict."""
+        url = f"{BASE_URL}/blocks/{tasks_page_id}/children"
+        payload = {
+            "children": [{
+                "object": "block",
+                "type": "to_do",
+                "to_do": {
+                    "rich_text": [{"type": "text", "text": {"content": text}}],
+                    "checked": False,
+                },
+            }]
+        }
+        resp = self.session.patch(url, json=payload)
+        resp.raise_for_status()
+        block = resp.json().get("results", [None])[0]
+        if block:
+            return self._parse_todo(block, "Quick Tasks")
+        return {"id": "", "text": text, "checked": False, "heading": "Quick Tasks", "rich_text": []}
 
     def update_todo_checked(self, block_id, checked):
         """PATCH a to_do block's checked state back to Notion."""

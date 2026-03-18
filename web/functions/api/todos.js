@@ -1,6 +1,7 @@
 const NOTION_API_VERSION = '2022-06-28';
 const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
+const QUICK_TASKS_HEADING = 'Quick Tasks';
 
 async function fetchChildren(token, blockId, cursor) {
     const params = new URLSearchParams({ page_size: '100' });
@@ -90,13 +91,30 @@ async function collectTodos(token) {
     return todos;
 }
 
+async function collectQuickTasks(token, tasksPageId) {
+    if (!tasksPageId) return [];
+    const todos = [];
+    const children = await allChildren(token, tasksPageId);
+    for (const b of children) {
+        if (b.type === 'to_do') {
+            todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading: QUICK_TASKS_HEADING });
+        }
+    }
+    return todos;
+}
+
 export async function onRequestGet(context) {
     const token = context.env.NOTION_TOKEN;
     if (!token) return new Response(JSON.stringify({ error: 'NOTION_TOKEN not configured' }), {
         status: 500, headers: { 'Content-Type': 'application/json' }
     });
     try {
-        const todos = await collectTodos(token);
+        const tasksPageId = context.env.TASKS_PAGE_ID;
+        const [journalTodos, quickTodos] = await Promise.all([
+            collectTodos(token),
+            collectQuickTasks(token, tasksPageId),
+        ]);
+        const todos = [...quickTodos, ...journalTodos];
         return new Response(JSON.stringify({ todos, lastSynced: new Date().toISOString() }), {
             headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }
         });

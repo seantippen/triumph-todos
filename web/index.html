@@ -270,6 +270,47 @@
             .search-input::placeholder { color: var(--color-text-disabled); }
             .search-input:focus { border-color: var(--color-border-emphasis); }
 
+            /* ── Add Task ────────────────────────────── */
+            .add-task-bar {
+                display: flex;
+                gap: 8px;
+                margin-bottom: var(--space-sm);
+            }
+            .add-task-input {
+                flex: 1;
+                padding: 10px 14px;
+                font-family: var(--font-sans);
+                font-size: var(--text-sm);
+                color: var(--color-text);
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 10px;
+                outline: none;
+                transition: border-color var(--duration-fast) var(--ease-out);
+            }
+            .add-task-input::placeholder { color: var(--color-text-disabled); }
+            .add-task-input:focus { border-color: var(--color-accent); }
+            .add-task-btn {
+                padding: 0 18px;
+                font-size: var(--text-sm);
+                font-weight: 600;
+                color: oklch(0.15 0 0);
+                background: var(--color-accent);
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all var(--duration-fast) var(--ease-out);
+                white-space: nowrap;
+            }
+            .add-task-btn:hover { filter: brightness(1.1); }
+            .add-task-btn:active { transform: scale(0.96); }
+            .add-task-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+                filter: none;
+            }
+
             /* ── Todo List ───────────────────────────── */
             .todo-list { padding-top: 2px; }
             .group-heading {
@@ -613,10 +654,10 @@
         function filterTodos() {
             var todayStr = getTodayStr();
             var source = data.todos;
-            if (filterMode === 'today') source = source.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
+            if (filterMode === 'today') source = source.filter(function(t) { return t.heading.indexOf(todayStr) !== -1 || t.heading === 'Quick Tasks'; });
             else if (filterMode === 'week') {
                 var range = getWeekRange();
-                source = source.filter(function(t) { var d = extractDate(t.heading); return d && d >= range.start && d <= range.end; });
+                source = source.filter(function(t) { var d = extractDate(t.heading); return (d && d >= range.start && d <= range.end) || t.heading === 'Quick Tasks'; });
             }
             if (searchQuery) {
                 var q = searchQuery;
@@ -626,7 +667,7 @@
             for (var i = 0; i < source.length; i++) {
                 var t = source[i];
                 if (!t.checked) active.push(t);
-                else { var d = extractDate(t.heading); if (!d || d === todayStr) completed.push(t); }
+                else { var d = extractDate(t.heading); if (!d || d === todayStr || t.heading === 'Quick Tasks') completed.push(t); }
             }
             return { active: active, completed: completed };
         }
@@ -645,6 +686,44 @@
                 map[t.heading].push(t);
             }
             return groups;
+        }
+
+        var addingTask = false;
+
+        function addTask(text) {
+            if (addingTask || !text.trim()) return;
+            addingTask = true;
+
+            // Optimistic: add to local data immediately
+            var optimistic = { id: 'temp-' + Date.now(), text: text.trim(), checked: false, heading: 'Quick Tasks' };
+            if (data && data.todos) data.todos.unshift(optimistic);
+            render();
+
+            fetch('/api/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text.trim() })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                addingTask = false;
+                if (d.error) throw new Error(d.error);
+                // Replace optimistic entry with real one
+                if (d.todo && data && data.todos) {
+                    var idx = data.todos.indexOf(optimistic);
+                    if (idx !== -1) data.todos[idx] = d.todo;
+                }
+                render();
+            })
+            .catch(function(e) {
+                addingTask = false;
+                // Remove optimistic entry on failure
+                if (data && data.todos) {
+                    var idx = data.todos.indexOf(optimistic);
+                    if (idx !== -1) data.todos.splice(idx, 1);
+                }
+                render();
+            });
         }
 
         function toggleTodo(todo) {
@@ -750,6 +829,28 @@
             input.addEventListener('input', function() { searchQuery = this.value.toLowerCase(); render(); });
             sb.appendChild(input);
             frag.appendChild(sb);
+
+            // Add task
+            var atb = document.createElement('div');
+            atb.className = 'add-task-bar';
+            var ati = document.createElement('input');
+            ati.type = 'text';
+            ati.className = 'add-task-input';
+            ati.placeholder = 'Add a quick task...';
+            ati.id = 'add-task-input';
+            var atBtn = document.createElement('button');
+            atBtn.className = 'add-task-btn';
+            atBtn.textContent = 'Add';
+            atBtn.disabled = addingTask;
+            function submitTask() {
+                var v = ati.value.trim();
+                if (v) { addTask(v); }
+            }
+            atBtn.addEventListener('click', submitTask);
+            ati.addEventListener('keydown', function(e) { if (e.key === 'Enter') submitTask(); });
+            atb.appendChild(ati);
+            atb.appendChild(atBtn);
+            frag.appendChild(atb);
 
             // List
             var list = document.createElement('div');

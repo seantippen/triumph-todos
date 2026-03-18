@@ -129,6 +129,7 @@ class TodoApp:
         self.todos = []
         self.filter_mode = "all"       # all | today | week
         self._search_query = ""
+        self._tasks_page_id = load_config().get("tasks_page_id")
 
         # Smart polling state
         self._focused = True
@@ -288,6 +289,48 @@ class TodoApp:
         )
         self._search_clear.bind("<Button-1>", lambda e: self._clear_search())
 
+        # ── Add task input ──────────────────────────────────────────
+        add_frame = tk.Frame(self.root, bg=BG, padx=20)
+        add_frame.pack(fill="x", pady=(4, 4))
+
+        add_border = tk.Frame(add_frame, bg=BORDER, padx=1, pady=1)
+        add_border.pack(fill="x")
+
+        add_inner = tk.Frame(add_border, bg=BG_SURFACE)
+        add_inner.pack(fill="x")
+
+        tk.Label(add_inner, text=" +", font=(FONT_MONO, 10, "bold"), fg=ACCENT,
+                 bg=BG_SURFACE).pack(side="left")
+
+        self._add_var = tk.StringVar()
+        self._add_entry = tk.Entry(
+            add_inner, textvariable=self._add_var,
+            font=(FONT, 10), bg=BG_SURFACE, fg=FG_TEXT,
+            insertbackground=FG_TEXT, relief="flat", bd=0,
+        )
+        self._add_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(2, 4))
+        self._add_entry.insert(0, "")
+        self._add_entry.bind("<Return>", lambda e: self._submit_new_task())
+
+        # Placeholder text
+        self._add_placeholder = True
+        self._add_entry.insert(0, "Add a quick task...")
+        self._add_entry.config(fg=FG_DIM)
+        self._add_entry.bind("<FocusIn>", self._add_focus_in)
+        self._add_entry.bind("<FocusOut>", self._add_focus_out)
+
+        add_btn = tk.Button(
+            add_inner, text="Add", font=(FONT, 9, "bold"),
+            fg=BG, bg=ACCENT, activebackground="#16a34a", relief="flat",
+            cursor="hand2", padx=12, pady=2,
+            command=self._submit_new_task,
+        )
+        add_btn.pack(side="right", padx=(0, 2), pady=2)
+
+        # Hide add bar if no tasks page configured
+        if not self._tasks_page_id:
+            add_frame.pack_forget()
+
         # ── Scrollable todo list ─────────────────────────────────────
         container = tk.Frame(self.root, bg=BG)
         container.pack(fill="both", expand=True, padx=20, pady=(4, 0))
@@ -323,7 +366,7 @@ class TodoApp:
         self.count_label.pack(side="left")
 
         self._shortcut_hint = tk.Label(
-            status_bar, text="Ctrl+F search  ·  Ctrl+R refresh  ·  Ctrl+1/2/3 filter",
+            status_bar, text="Ctrl+N add  ·  Ctrl+F search  ·  Ctrl+R refresh",
             font=(FONT, 8), fg="#475569", bg=BG_SURFACE,
         )
         self._shortcut_hint.pack(side="right")
@@ -337,6 +380,7 @@ class TodoApp:
     def _bind_shortcuts(self):
         self.root.bind("<Control-r>", lambda e: self._trigger_refresh())
         self.root.bind("<Control-f>", lambda e: self._focus_search())
+        self.root.bind("<Control-n>", lambda e: self._focus_add_task())
         self.root.bind("<Control-e>", lambda e: self._toggle_completed_section())
         self.root.bind("<Control-Key-1>", lambda e: self._set_filter("all"))
         self.root.bind("<Control-Key-2>", lambda e: self._set_filter("today"))
@@ -345,6 +389,11 @@ class TodoApp:
 
     def _focus_search(self):
         self._search_entry.focus_set()
+
+    def _focus_add_task(self):
+        if self._tasks_page_id:
+            self._add_focus_in()
+            self._add_entry.focus_set()
 
     def _set_filter(self, mode):
         self.filter_var.set(mode)
@@ -371,6 +420,66 @@ class TodoApp:
     def _clear_search(self):
         self._search_var.set("")
         self.root.focus_set()
+
+    # ── Add Task ───────────────────────────────────────────────────
+
+    def _add_focus_in(self, event=None):
+        if self._add_placeholder:
+            self._add_entry.delete(0, "end")
+            self._add_entry.config(fg=FG_TEXT)
+            self._add_placeholder = False
+
+    def _add_focus_out(self, event=None):
+        if not self._add_var.get().strip():
+            self._add_placeholder = True
+            self._add_entry.delete(0, "end")
+            self._add_entry.insert(0, "Add a quick task...")
+            self._add_entry.config(fg=FG_DIM)
+
+    def _submit_new_task(self):
+        text = self._add_var.get().strip()
+        if not text or self._add_placeholder or not self._tasks_page_id:
+            return
+
+        # Clear input immediately
+        self._add_var.set("")
+        self._add_entry.config(fg=FG_TEXT)
+        self._add_placeholder = False
+        self.root.focus_set()
+
+        # Optimistic: add to local list
+        optimistic = {"id": f"temp-{time.time()}", "text": text, "checked": False,
+                       "heading": "Quick Tasks", "rich_text": []}
+        self.todos.insert(0, optimistic)
+        self._render_todos()
+
+        self.status_label.config(text="Adding...", fg=YELLOW)
+
+        def sync():
+            try:
+                real_todo = self.client.add_todo(self._tasks_page_id, text)
+                # Replace optimistic with real
+                def update():
+                    try:
+                        idx = self.todos.index(optimistic)
+                        self.todos[idx] = real_todo
+                    except ValueError:
+                        pass
+                    ts = datetime.now().strftime('%I:%M %p')
+                    self.status_label.config(text=f"Added {ts}", fg=ACCENT)
+                    self._render_todos()
+                self.root.after(0, update)
+            except Exception as e:
+                def on_error():
+                    try:
+                        self.todos.remove(optimistic)
+                    except ValueError:
+                        pass
+                    self.status_label.config(text=f"Add error: {e}", fg=RED)
+                    self._render_todos()
+                self.root.after(0, on_error)
+
+        threading.Thread(target=sync, daemon=True).start()
 
     # ── System Tray ───────────────────────────────────────────────────
 
@@ -506,6 +615,9 @@ class TodoApp:
         """Fetch todos in background thread, update UI on main thread."""
         try:
             todos = self.client.collect_todos()
+            if self._tasks_page_id:
+                quick = self.client.collect_quick_tasks(self._tasks_page_id)
+                todos = quick + todos
             self.root.after(0, self._update_todos, todos, None)
         except Exception as e:
             self.root.after(0, self._update_todos, None, e)
@@ -538,12 +650,12 @@ class TodoApp:
         # Apply date filter first
         source = self.todos
         if self.filter_mode == "today":
-            source = [t for t in source if today_str in t["heading"]]
+            source = [t for t in source if today_str in t["heading"] or t["heading"] == "Quick Tasks"]
         elif self.filter_mode == "week":
             today = datetime.now().date()
             monday = today - timedelta(days=today.weekday())
             sunday = monday + timedelta(days=6)
-            source = [t for t in source if self._heading_in_range(t["heading"], monday, sunday)]
+            source = [t for t in source if self._heading_in_range(t["heading"], monday, sunday) or t["heading"] == "Quick Tasks"]
 
         # Apply search filter
         if self._search_query:
