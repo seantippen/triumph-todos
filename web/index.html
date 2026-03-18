@@ -1082,14 +1082,17 @@
                     if (isSnoozed(t.id)) snoozed.push(t);
                     else active.push(t);
                 } else {
-                    // Auto-archive: only show completed tasks from today
-                    var d = extractDate(t.heading);
+                    // Show completed task if it was completed recently (within 24h)
+                    var ct = completedAt[t.id];
                     var showCompleted = false;
-                    if (d === todayStr) showCompleted = true;
-                    else if (!d || t.heading === 'Quick Tasks') {
-                        // For dateless tasks, use completion timestamp
-                        var ct = completedAt[t.id];
-                        showCompleted = ct ? ct > archiveCutoff : true; // show if no timestamp (legacy)
+                    if (ct && ct > archiveCutoff) {
+                        // Completed within the last 24 hours — always show
+                        showCompleted = true;
+                    } else {
+                        // Fallback: show if heading is today or dateless
+                        var d = extractDate(t.heading);
+                        if (d === todayStr) showCompleted = true;
+                        else if (!d || t.heading === 'Quick Tasks') showCompleted = !ct; // legacy tasks without timestamp
                     }
                     if (showCompleted) completed.push(t);
                 }
