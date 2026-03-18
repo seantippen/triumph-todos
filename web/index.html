@@ -352,13 +352,16 @@
             .drag-handle:active { cursor: grabbing; }
             .flat-mode .drag-handle { display: flex; }
             .divider-row {
-                padding: 4px 16px;
+                padding: 12px 16px;
                 background: transparent;
-                border: none;
+                border: 1px solid transparent;
                 cursor: grab;
                 align-items: center;
                 gap: 8px;
-                min-height: auto;
+            }
+            .divider-row:hover {
+                background: var(--color-surface);
+                border-color: var(--color-border);
             }
             .divider-row:active { cursor: grabbing; }
             .divider-row .drag-handle { display: flex; opacity: 0; }
@@ -369,7 +372,6 @@
                 background: var(--color-accent);
                 border-radius: 1px;
             }
-            .divider-row:hover .divider-line { opacity: 0.8; }
             .divider-delete {
                 color: var(--color-text-disabled);
                 cursor: pointer;
