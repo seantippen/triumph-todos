@@ -931,6 +931,7 @@
 
         refreshBtn.addEventListener('click', function() {
             refreshBtn.classList.add('spinning');
+            needsFreshFetch = true;
             load();
         });
 
@@ -950,8 +951,16 @@
             updateThemeIcon();
         });
 
+        var needsFreshFetch = false;
         function load() {
-            fetch('/api/todos')
+            var url = '/api/todos';
+            var opts = {};
+            if (needsFreshFetch) {
+                url += '?_t=' + Date.now();
+                opts.cache = 'no-store';
+                needsFreshFetch = false;
+            }
+            fetch(url, opts)
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     if (d.error) throw new Error(d.error);
@@ -1292,7 +1301,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: todo.id, text: newText })
-            }).then(function(r) { if (!r.ok) { todo.text = oldText; render(); showToast('Couldn\u2019t save edit'); } else { scheduleRefresh(); } })
+            }).then(function(r) { if (!r.ok) { todo.text = oldText; render(); showToast('Couldn\u2019t save edit'); } else { needsFreshFetch = true; scheduleRefresh(); } })
               .catch(function() { todo.text = oldText; render(); showToast('Couldn\u2019t save edit'); });
         }
 
@@ -1462,6 +1471,7 @@
                     if (idx !== -1) data.todos[idx] = d.todo;
                 }
                 render();
+                needsFreshFetch = true;
                 scheduleRefresh();
             })
             .catch(function(e) {
@@ -1489,7 +1499,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: todo.id, checked: nc })
-            }).then(function(r) { if (!r.ok) { todo.checked = !nc; render(); showToast('Couldn\u2019t save — reverted'); } else { scheduleRefresh(); } })
+            }).then(function(r) { if (!r.ok) { todo.checked = !nc; render(); showToast('Couldn\u2019t save — reverted'); } else { needsFreshFetch = true; scheduleRefresh(); } })
               .catch(function() { todo.checked = !nc; render(); showToast('Couldn\u2019t save — reverted'); });
         }
 
@@ -1504,7 +1514,7 @@
                 body: JSON.stringify({ id: todo.id })
             }).then(function(r) {
                 if (!r.ok) { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); }
-                else { scheduleRefresh(); }
+                else { needsFreshFetch = true; scheduleRefresh(); }
             }).catch(function() { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); });
         }
 
@@ -1558,20 +1568,11 @@
             row.className = 'todo-row' + (todo.checked ? ' completed' : '');
             row.setAttribute('draggable', 'true');
             row.setAttribute('data-id', todo.id);
-            // Delay single-click so double-click can cancel it
-            var clickTimer = null;
-            row.addEventListener('click', function(e) {
-                if (e.target.classList.contains('drag-handle') || e.target.classList.contains('star-btn') || e.target.classList.contains('delete-btn') || e.target.classList.contains('todo-text-edit')) return;
-                if (clickTimer) return; // already waiting
-                clickTimer = setTimeout(function() { clickTimer = null; toggleTodo(todo); }, 250);
-            });
-
-            // Double-click to inline edit — cancels the pending single-click toggle
+            // Double-click text to inline edit
             row.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-                if (e.target.classList.contains('star-btn') || e.target.classList.contains('drag-handle')) return;
+                if (e.target.classList.contains('todo-check') || e.target.classList.contains('star-btn') || e.target.classList.contains('drag-handle')) return;
                 var textEl = row.querySelector('.todo-text');
                 if (!textEl || row.querySelector('.todo-text-edit')) return;
                 var input = document.createElement('input');
@@ -1654,6 +1655,8 @@
             }
             var check = document.createElement('div');
             check.className = 'todo-check' + (todo.checked ? ' checked' : '');
+            check.style.cursor = 'pointer';
+            check.addEventListener('click', function(e) { e.stopPropagation(); toggleTodo(todo); });
             row.appendChild(check);
             var txt = document.createElement('span');
             txt.className = 'todo-text';
