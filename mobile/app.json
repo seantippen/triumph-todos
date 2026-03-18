@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Triumph Todos",
+    "slug": "triumph-todos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0d12"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.triumph.todos"
+    },
+    "android": {
+      "package": "com.triumph.todos",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0d12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
