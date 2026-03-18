@@ -1,6 +1,7 @@
 const NOTION_API_VERSION = '2022-06-28';
 const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
+const QUICK_TASKS_HEADING = 'Quick Tasks';
 const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
 const CACHE_TTL = 120; // seconds
 
@@ -99,6 +100,18 @@ async function collectTodos(token) {
     return todos;
 }
 
+async function collectQuickTasks(token, tasksPageId) {
+    if (!tasksPageId) return [];
+    const todos = [];
+    const children = await allChildren(token, tasksPageId);
+    for (const b of children) {
+        if (b.type === 'to_do') {
+            todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading: QUICK_TASKS_HEADING });
+        }
+    }
+    return todos;
+}
+
 function jsonResp(data, status) {
     return new Response(JSON.stringify(data), {
         status: status || 200,
@@ -121,7 +134,12 @@ export default {
             if (cached) return cached;
 
             try {
-                const todos = await collectTodos(token);
+                const tasksPageId = env.TASKS_PAGE_ID;
+                const [journalTodos, quickTodos] = await Promise.all([
+                    collectTodos(token),
+                    collectQuickTasks(token, tasksPageId),
+                ]);
+                const todos = [...quickTodos, ...journalTodos];
                 const resp = jsonResp({ todos, lastSynced: new Date().toISOString() });
                 const toCache = new Response(resp.clone().body, resp);
                 toCache.headers.set('Cache-Control', `max-age=${CACHE_TTL}`);
@@ -130,6 +148,46 @@ export default {
             } catch (e) {
                 return jsonResp({ error: e.message }, 500);
             }
+        }
+
+        if (url.pathname === '/api/add' && request.method === 'POST') {
+            const token = env.NOTION_TOKEN;
+            const tasksPageId = env.TASKS_PAGE_ID;
+            if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
+            if (!tasksPageId) return jsonResp({ error: 'TASKS_PAGE_ID not configured' }, 500);
+            const { text } = await request.json();
+            if (!text || typeof text !== 'string' || !text.trim()) return jsonResp({ error: 'text required' }, 400);
+            const r = await fetch(`${BASE_URL}/blocks/${tasksPageId}/children`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ children: [{ object: 'block', type: 'to_do', to_do: { rich_text: [{ type: 'text', text: { content: text.trim() } }], checked: false } }] }),
+            });
+            if (!r.ok) return jsonResp({ error: await r.text() }, r.status);
+            const data = await r.json();
+            const block = data.results?.[0];
+            // Purge cache so next read is fresh
+            const cache = caches.default;
+            ctx.waitUntil(cache.delete(new Request(CACHE_KEY)));
+            return jsonResp({ ok: true, todo: block ? { id: block.id, text: text.trim(), checked: false, heading: QUICK_TASKS_HEADING } : null });
+        }
+
+        if (url.pathname === '/api/setup' && request.method === 'POST') {
+            const token = env.NOTION_TOKEN;
+            if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
+            if (env.TASKS_PAGE_ID) return jsonResp({ error: 'TASKS_PAGE_ID already set', id: env.TASKS_PAGE_ID }, 400);
+            const r = await fetch('https://api.notion.com/v1/pages', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parent: { page_id: PAGE_ID },
+                    properties: { title: [{ text: { content: 'Quick Tasks' } }] },
+                    icon: { type: 'emoji', emoji: '⚡' },
+                    children: [{ object: 'block', type: 'callout', callout: { icon: { type: 'emoji', emoji: '📝' }, rich_text: [{ text: { content: 'Tasks added from the Triumph Todos app appear here.' } }] } }],
+                }),
+            });
+            if (!r.ok) return jsonResp({ error: await r.text() }, r.status);
+            const page = await r.json();
+            return jsonResp({ ok: true, tasks_page_id: page.id, instructions: 'Set this as TASKS_PAGE_ID in Cloudflare Pages environment variables, then redeploy.' });
         }
 
         if (url.pathname === '/api/update' && request.method === 'POST') {
