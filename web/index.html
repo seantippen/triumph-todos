@@ -331,6 +331,62 @@
 
             /* ── Todo List ───────────────────────────── */
             .todo-list { padding-top: 2px; }
+            .todo-row.dragging { opacity: 0.4; }
+            .todo-row.drag-over-above { border-top: 2px solid var(--color-accent); margin-top: -2px; }
+            .todo-row.drag-over-below { border-bottom: 2px solid var(--color-accent); margin-bottom: 2px; }
+            .drag-handle {
+                display: none;
+                align-items: center;
+                color: var(--color-text-disabled);
+                cursor: grab;
+                font-size: 14px;
+                flex-shrink: 0;
+                padding: 0 2px;
+                user-select: none;
+            }
+            .drag-handle:active { cursor: grabbing; }
+            .flat-mode .drag-handle { display: flex; }
+            .divider-row {
+                justify-content: center;
+                padding: 6px 16px;
+                background: transparent;
+                border: 1px dashed var(--color-border-emphasis);
+                cursor: default;
+            }
+            .divider-row:hover { background: var(--color-surface); }
+            .divider-label {
+                flex: 1;
+                font-family: var(--font-mono);
+                font-size: var(--text-xs);
+                color: var(--color-text-muted);
+                text-align: center;
+                outline: none;
+                min-width: 20px;
+            }
+            .divider-label:focus { color: var(--color-text); border-bottom: 1px solid var(--color-accent); }
+            .divider-delete {
+                color: var(--color-text-disabled);
+                cursor: pointer;
+                font-size: 16px;
+                padding: 0 4px;
+                transition: color var(--duration-fast);
+            }
+            .divider-delete:hover { color: var(--color-danger); }
+            .add-divider-btn {
+                display: block;
+                width: 100%;
+                padding: 8px;
+                margin-top: 8px;
+                font-family: var(--font-mono);
+                font-size: var(--text-xs);
+                color: var(--color-text-muted);
+                background: transparent;
+                border: 1px dashed var(--color-border);
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all var(--duration-fast) var(--ease-out);
+            }
+            .add-divider-btn:hover { color: var(--color-text-secondary); border-color: var(--color-border-emphasis); }
             .group-heading {
                 display: flex;
                 align-items: center;
@@ -710,6 +766,57 @@
         var undoStack = []; // { type: 'toggle'|'add', todo, prevChecked }
         var flatMode = false;
 
+        // Custom order & dividers (flat mode only, persisted in localStorage)
+        var customOrder = JSON.parse(localStorage.getItem('todo-custom-order') || '[]'); // array of IDs (task or divider)
+        var dividers = JSON.parse(localStorage.getItem('todo-dividers') || '{}'); // { id: label }
+
+        function saveOrder() { localStorage.setItem('todo-custom-order', JSON.stringify(customOrder)); }
+        function saveDividers() { localStorage.setItem('todo-dividers', JSON.stringify(dividers)); }
+
+        function applyCustomOrder(tasks) {
+            if (customOrder.length === 0) return tasks;
+            var byId = {};
+            for (var i = 0; i < tasks.length; i++) byId[tasks[i].id] = tasks[i];
+            var ordered = [];
+            // Add items in saved order (tasks + dividers)
+            for (var j = 0; j < customOrder.length; j++) {
+                var oid = customOrder[j];
+                if (byId[oid]) { ordered.push(byId[oid]); delete byId[oid]; }
+                else if (dividers[oid]) { ordered.push({ id: oid, text: dividers[oid], _divider: true }); }
+            }
+            // Append any new tasks not in saved order (at the top)
+            var unsorted = [];
+            for (var k in byId) unsorted.push(byId[k]);
+            return unsorted.concat(ordered);
+        }
+
+        function rebuildOrder(tasks) {
+            // Rebuild customOrder from current flat list (tasks + dividers interleaved)
+            customOrder = [];
+            for (var i = 0; i < tasks.length; i++) customOrder.push(tasks[i].id);
+            saveOrder();
+        }
+
+        function addDivider() {
+            var did = 'div-' + Date.now();
+            dividers[did] = '── ── ──';
+            saveDividers();
+            customOrder.push(did);
+            saveOrder();
+            render();
+        }
+
+        function removeDivider(did) {
+            delete dividers[did];
+            saveDividers();
+            customOrder = customOrder.filter(function(x) { return x !== did; });
+            saveOrder();
+            render();
+        }
+
+        // Drag and drop state
+        var dragId = null;
+
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                 e.preventDefault();
@@ -780,10 +887,64 @@
               .catch(function() { todo.checked = !nc; render(); });
         }
 
+        function makeDividerRow(item) {
+            var row = document.createElement('div');
+            row.className = 'todo-row divider-row';
+            row.setAttribute('draggable', 'true');
+            row.setAttribute('data-id', item.id);
+            row.addEventListener('dragstart', function(e) { dragId = item.id; if (!flatMode) { flatMode = true; } row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+            row.addEventListener('dragend', function() { dragId = null; row.classList.remove('dragging'); clearDropIndicators(); });
+            row.addEventListener('dragover', handleDragOver);
+            row.addEventListener('dragleave', handleDragLeave);
+            row.addEventListener('drop', handleDrop);
+
+            var handle = document.createElement('span');
+            handle.className = 'drag-handle';
+            handle.textContent = '\u2847'; // ⠇ braille dots
+            row.appendChild(handle);
+
+            var label = document.createElement('span');
+            label.className = 'divider-label';
+            label.textContent = item.text;
+            label.contentEditable = true;
+            label.addEventListener('click', function(e) { e.stopPropagation(); });
+            label.addEventListener('blur', function() { dividers[item.id] = label.textContent.trim() || '── ── ──'; saveDividers(); });
+            label.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); label.blur(); } });
+            row.appendChild(label);
+
+            var del = document.createElement('span');
+            del.className = 'divider-delete';
+            del.textContent = '\u00d7';
+            del.addEventListener('click', function(e) { e.stopPropagation(); removeDivider(item.id); });
+            row.appendChild(del);
+            return row;
+        }
+
         function makeRow(todo) {
+            if (todo._divider) return makeDividerRow(todo);
             var row = document.createElement('div');
             row.className = 'todo-row' + (todo.checked ? ' completed' : '');
-            row.addEventListener('click', function() { toggleTodo(todo); });
+            row.setAttribute('draggable', 'true');
+            row.setAttribute('data-id', todo.id);
+            row.addEventListener('click', function(e) { if (e.target.classList.contains('drag-handle')) return; toggleTodo(todo); });
+
+            // Drag events
+            row.addEventListener('dragstart', function(e) {
+                dragId = todo.id;
+                if (!flatMode) { flatMode = true; render(); return; }
+                row.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            row.addEventListener('dragend', function() { dragId = null; row.classList.remove('dragging'); clearDropIndicators(); });
+            row.addEventListener('dragover', handleDragOver);
+            row.addEventListener('dragleave', handleDragLeave);
+            row.addEventListener('drop', handleDrop);
+
+            var handle = document.createElement('span');
+            handle.className = 'drag-handle';
+            handle.textContent = '\u2847'; // ⠇
+            row.appendChild(handle);
+
             if (!todo.checked) {
                 var pip = document.createElement('div');
                 pip.className = 'todo-pip';
@@ -797,6 +958,40 @@
             txt.textContent = todo.text;
             row.appendChild(txt);
             return row;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            var row = e.currentTarget;
+            clearDropIndicators();
+            var rect = row.getBoundingClientRect();
+            var mid = rect.top + rect.height / 2;
+            if (e.clientY < mid) row.classList.add('drag-over-above');
+            else row.classList.add('drag-over-below');
+        }
+        function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over-above', 'drag-over-below'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            var targetRow = e.currentTarget;
+            var targetId = targetRow.getAttribute('data-id');
+            if (!dragId || dragId === targetId) { clearDropIndicators(); return; }
+            // Determine position
+            var rect = targetRow.getBoundingClientRect();
+            var above = e.clientY < rect.top + rect.height / 2;
+            // Move in customOrder
+            customOrder = customOrder.filter(function(x) { return x !== dragId; });
+            var targetIdx = customOrder.indexOf(targetId);
+            if (targetIdx === -1) targetIdx = customOrder.length;
+            if (!above) targetIdx++;
+            customOrder.splice(targetIdx, 0, dragId);
+            saveOrder();
+            clearDropIndicators();
+            render();
+        }
+        function clearDropIndicators() {
+            var rows = document.querySelectorAll('.drag-over-above, .drag-over-below');
+            for (var i = 0; i < rows.length; i++) rows[i].classList.remove('drag-over-above', 'drag-over-below');
         }
 
         function render() {
@@ -901,7 +1096,7 @@
 
             // List
             var list = document.createElement('div');
-            list.className = 'todo-list';
+            list.className = 'todo-list' + (flatMode ? ' flat-mode' : '');
             if (active.length === 0 && completed.length === 0) {
                 var empty = document.createElement('div');
                 empty.className = 'state-msg';
@@ -914,7 +1109,15 @@
                 list.appendChild(empty);
             } else {
                 if (flatMode) {
-                    for (var ai = 0; ai < active.length; ai++) list.appendChild(makeRow(active[ai]));
+                    var ordered = applyCustomOrder(active);
+                    rebuildOrder(ordered);
+                    for (var ai = 0; ai < ordered.length; ai++) list.appendChild(makeRow(ordered[ai]));
+                    // Add divider button
+                    var addDiv = document.createElement('button');
+                    addDiv.className = 'add-divider-btn';
+                    addDiv.textContent = '+ Add divider';
+                    addDiv.addEventListener('click', addDivider);
+                    list.appendChild(addDiv);
                 } else {
                 var groups = groupByHeading(active);
                 for (var gi = 0; gi < groups.length; gi++) {
