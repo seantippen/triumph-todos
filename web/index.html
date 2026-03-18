@@ -241,34 +241,35 @@
                 white-space: nowrap;
             }
 
-            /* ── Search ──────────────────────────────── */
-            .search-bar {
+            /* ── Search (inline in toolbar) ─────────── */
+            .search-inline {
                 position: relative;
-                margin-bottom: var(--space-xs);
+                flex: 1;
+                max-width: 160px;
             }
-            .search-icon {
+            .search-inline .search-icon {
                 position: absolute;
-                left: 12px;
+                left: 8px;
                 top: 50%;
                 transform: translateY(-50%);
                 color: var(--color-text-muted);
-                font-size: 13px;
+                font-size: 11px;
                 pointer-events: none;
             }
-            .search-input {
+            .search-inline .search-input {
                 width: 100%;
-                padding: 8px 12px 8px 34px;
+                padding: 5px 8px 5px 26px;
                 font-family: var(--font-sans);
-                font-size: var(--text-sm);
+                font-size: var(--text-xs);
                 color: var(--color-text);
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 10px;
+                border-radius: 6px;
                 outline: none;
-                transition: border-color var(--duration-fast) var(--ease-out);
+                transition: border-color var(--duration-fast) var(--ease-out), max-width var(--duration-normal) var(--ease-out);
             }
-            .search-input::placeholder { color: var(--color-text-disabled); }
-            .search-input:focus { border-color: var(--color-border-emphasis); }
+            .search-inline .search-input::placeholder { color: var(--color-text-disabled); }
+            .search-inline .search-input:focus { border-color: var(--color-border-emphasis); max-width: 200px; }
 
             /* ── Add Task ────────────────────────────── */
             .add-task-bar {
@@ -808,15 +809,10 @@
                 fg.appendChild(btn);
             }
             tb.appendChild(fg);
-            var ic = document.createElement('span');
-            ic.className = 'item-count';
-            ic.textContent = active.length + ' active';
-            tb.appendChild(ic);
-            frag.appendChild(tb);
 
-            // Search
+            // Inline search
             var sb = document.createElement('div');
-            sb.className = 'search-bar';
+            sb.className = 'search-inline';
             var si = document.createElement('span');
             si.className = 'search-icon';
             si.textContent = '\u2315';
@@ -824,11 +820,13 @@
             var input = document.createElement('input');
             input.type = 'text';
             input.className = 'search-input';
-            input.placeholder = 'Search tasks...';
+            input.placeholder = 'Search...';
             input.value = searchQuery;
             input.addEventListener('input', function() { searchQuery = this.value.toLowerCase(); render(); });
             sb.appendChild(input);
-            frag.appendChild(sb);
+            tb.appendChild(sb);
+
+            frag.appendChild(tb);
 
             // Add task
             var atb = document.createElement('div');
