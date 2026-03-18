@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1f2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>To-Do</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -13,61 +16,48 @@
         @layer reset {
             *, *::before, *::after { box-sizing: border-box; margin: 0; }
             body { line-height: 1.5; -webkit-font-smoothing: antialiased; }
+            button { font: inherit; }
         }
 
         @layer tokens {
             :root {
-                /* Master surfaces (OKLCH) */
                 --color-bg: oklch(0.14 0.025 250);
                 --color-surface: oklch(0.18 0.025 250);
                 --color-surface-hover: oklch(0.22 0.025 250);
                 --color-surface-raised: oklch(0.26 0.025 250);
-
-                /* Text */
+                --color-surface-overlay: oklch(0.30 0.025 250);
                 --color-text: oklch(0.93 0.01 250);
                 --color-text-secondary: oklch(0.75 0.01 250);
                 --color-text-muted: oklch(0.55 0.015 250);
                 --color-text-disabled: oklch(0.40 0.01 250);
-
-                /* Borders */
                 --color-border: oklch(1 0 0 / 0.08);
                 --color-border-emphasis: oklch(1 0 0 / 0.15);
-
-                /* Triumph override accents */
+                --color-border-strong: oklch(1 0 0 / 0.25);
                 --color-accent: oklch(0.72 0.19 155);
                 --color-secondary: oklch(0.69 0.18 255);
                 --accent-muted: oklch(0.72 0.19 155 / 0.15);
                 --accent-subtle: oklch(0.72 0.19 155 / 0.08);
-
-                /* Status */
+                --color-success: oklch(0.72 0.17 145);
                 --color-warning: oklch(0.80 0.16 85);
                 --color-danger: oklch(0.70 0.19 25);
-
-                /* Heading accent — lighter green for readability */
                 --color-heading: oklch(0.78 0.15 160);
-
-                /* Typography */
-                --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-                /* Fluid type */
                 --text-xs: clamp(0.6875rem, 0.625rem + 0.25vw, 0.8125rem);
                 --text-sm: clamp(0.8125rem, 0.75rem + 0.25vw, 0.9375rem);
                 --text-base: clamp(0.9375rem, 0.875rem + 0.25vw, 1.0625rem);
                 --text-lg: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
-
-                /* Fluid spacing */
+                --text-xl: clamp(1.375rem, 1.125rem + 1vw, 1.875rem);
                 --space-xs: clamp(0.25rem, 0.2rem + 0.2vw, 0.5rem);
                 --space-sm: clamp(0.5rem, 0.4rem + 0.4vw, 0.875rem);
                 --space-md: clamp(1rem, 0.875rem + 0.5vw, 1.5rem);
-
-                /* Motion */
+                --space-lg: clamp(1.5rem, 1.25rem + 1vw, 2.5rem);
                 --ease-out: cubic-bezier(0, 0, 0.2, 1);
+                --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
                 --duration-fast: 150ms;
                 --duration-normal: 250ms;
-
-                /* Shadows */
                 --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+                --shadow-md: 0 4px 12px oklch(0 0 0 / 0.4);
             }
         }
 
@@ -77,14 +67,14 @@
                 background-color: var(--color-bg);
                 color: var(--color-text);
                 min-height: 100vh;
-                /* Perspective grid */
+                min-height: 100dvh;
                 background-image:
                     linear-gradient(oklch(1 0 0 / 0.03) 1px, transparent 1px),
                     linear-gradient(90deg, oklch(1 0 0 / 0.03) 1px, transparent 1px);
                 background-size: 60px 60px;
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
             }
-
-            /* Noise grain overlay */
             body::after {
                 content: '';
                 position: fixed;
@@ -95,14 +85,11 @@
                 mix-blend-mode: overlay;
                 background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
             }
-
-            /* Animated glow */
             @property --glow-hue {
                 syntax: "<angle>";
                 inherits: false;
                 initial-value: 0deg;
             }
-
             body::before {
                 content: '';
                 position: fixed;
@@ -118,96 +105,111 @@
                 );
                 animation: glow-rotate 25s linear infinite;
             }
-
-            @keyframes glow-rotate {
-                to { --glow-hue: 360deg; }
-            }
+            @keyframes glow-rotate { to { --glow-hue: 360deg; } }
         }
 
         @layer components {
             .container {
                 position: relative;
                 z-index: 1;
-                max-width: 680px;
+                max-width: 640px;
                 margin: 0 auto;
                 padding: 0 var(--space-md) 40px;
             }
 
-            /* ── Header ─────────────────────────────── */
+            /* ── Header ──────────────────────────────── */
             header {
                 position: sticky;
                 top: 0;
                 z-index: 10;
-                background: oklch(0.14 0.025 250 / 0.82);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
+                background: oklch(0.14 0.025 250 / 0.85);
+                backdrop-filter: blur(24px) saturate(1.2);
+                -webkit-backdrop-filter: blur(24px) saturate(1.2);
                 border-bottom: 1px solid var(--color-border);
                 margin: 0 calc(var(--space-md) * -1);
                 padding: 0 var(--space-md);
             }
-
             .accent-bar {
-                height: 3px;
+                height: 2px;
                 background: linear-gradient(90deg, var(--color-accent), var(--color-secondary));
             }
-
             .header-inner {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: var(--space-md) 0;
+                padding: 14px 0;
             }
-
-            .header-title {
+            .header-left h1 {
                 font-size: var(--text-lg);
                 font-weight: 700;
-                letter-spacing: -0.02em;
+                letter-spacing: -0.03em;
             }
-
-            .header-sync {
+            .header-date {
+                font-family: var(--font-mono);
+                font-size: var(--text-xs);
+                color: var(--color-text-muted);
+                margin-top: 1px;
+            }
+            .header-right {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .sync-status {
                 font-family: var(--font-mono);
                 font-size: var(--text-xs);
                 color: var(--color-text-secondary);
             }
+            .sync-status.stale { color: var(--color-warning); }
+            .sync-status.error { color: var(--color-danger); }
+            .refresh-btn {
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 8px;
+                color: var(--color-text-secondary);
+                cursor: pointer;
+                transition: all var(--duration-fast) var(--ease-out);
+                font-size: 14px;
+            }
+            .refresh-btn:hover { color: var(--color-text); border-color: var(--color-border-emphasis); }
+            .refresh-btn:active { transform: scale(0.92); }
+            .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+            @keyframes spin { to { transform: rotate(360deg); } }
 
-            .header-sync.stale { color: var(--color-warning); }
-            .header-sync.error { color: var(--color-danger); }
-
-            /* ── Progress ───────────────────────────── */
+            /* ── Progress ────────────────────────────── */
             .progress-section { padding: var(--space-sm) 0 0; }
-
             .progress-header {
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
-                margin-bottom: var(--space-xs);
+                align-items: baseline;
+                margin-bottom: 6px;
             }
-
             .progress-label {
                 font-family: var(--font-mono);
                 font-size: var(--text-xs);
                 color: var(--color-text-secondary);
             }
-
             .progress-pct {
                 font-family: var(--font-mono);
                 font-size: var(--text-xs);
                 font-weight: 600;
             }
-
             .progress-track {
-                height: 6px;
+                height: 5px;
                 background: var(--color-surface-hover);
                 border-radius: 3px;
                 overflow: hidden;
             }
-
             .progress-fill {
                 height: 100%;
                 border-radius: 3px;
-                transition: width 0.4s var(--ease-out), background 0.4s var(--ease-out);
+                transition: width 0.5s var(--ease-out), background 0.3s;
             }
-
             .progress-fill.low { background: var(--color-text-muted); }
             .progress-fill.mid { background: var(--color-secondary); }
             .progress-fill.high { background: var(--color-accent); }
@@ -217,166 +219,162 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: var(--space-sm) 0;
+                padding: var(--space-sm) 0 4px;
+                gap: 8px;
             }
-
             .filter-group {
                 display: flex;
                 gap: 2px;
-                background: var(--color-surface-hover);
-                border-radius: 6px;
-                padding: 2px;
-            }
-
-            .filter-btn {
-                font-family: var(--font-sans);
-                font-size: var(--text-xs);
-                font-weight: 600;
-                color: var(--color-text-secondary);
-                background: transparent;
-                border: none;
-                padding: 6px 14px;
-                border-radius: 4px;
-                cursor: pointer;
-                transition: all var(--duration-fast) var(--ease-out);
-            }
-
-            .filter-btn:hover { color: var(--color-text); }
-            .filter-btn.active {
-                color: var(--color-text);
-                background: var(--color-surface);
-            }
-
-            .toolbar-right {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-
-            .item-count {
-                font-size: var(--text-xs);
-                color: var(--color-text-muted);
-            }
-
-            .refresh-btn {
-                font-family: var(--font-sans);
-                font-size: var(--text-xs);
-                font-weight: 500;
-                color: var(--color-text-secondary);
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
+                border-radius: 8px;
+                padding: 3px;
+            }
+            .filter-btn {
+                font-size: var(--text-xs);
+                font-weight: 600;
+                color: var(--color-text-muted);
+                background: transparent;
+                border: none;
                 padding: 5px 12px;
                 border-radius: 5px;
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
             }
-
-            .refresh-btn:hover {
+            .filter-btn:hover { color: var(--color-text-secondary); }
+            .filter-btn.active {
                 color: var(--color-text);
-                border-color: var(--color-border-emphasis);
+                background: var(--color-surface-hover);
+                box-shadow: var(--shadow-sm);
+            }
+            .item-count {
+                font-family: var(--font-mono);
+                font-size: var(--text-xs);
+                color: var(--color-text-muted);
+                white-space: nowrap;
             }
 
-            .refresh-btn:disabled {
-                opacity: 0.5;
-                cursor: default;
+            /* ── Search ──────────────────────────────── */
+            .search-bar {
+                position: relative;
+                margin-bottom: var(--space-xs);
             }
+            .search-icon {
+                position: absolute;
+                left: 12px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--color-text-muted);
+                font-size: 13px;
+                pointer-events: none;
+            }
+            .search-input {
+                width: 100%;
+                padding: 8px 12px 8px 34px;
+                font-family: var(--font-sans);
+                font-size: var(--text-sm);
+                color: var(--color-text);
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 10px;
+                outline: none;
+                transition: border-color var(--duration-fast) var(--ease-out);
+            }
+            .search-input::placeholder { color: var(--color-text-disabled); }
+            .search-input:focus { border-color: var(--color-border-emphasis); }
 
             /* ── Todo List ───────────────────────────── */
-            .todo-list { padding-top: var(--space-xs); }
-
+            .todo-list { padding-top: 2px; }
             .group-heading {
                 display: flex;
                 align-items: center;
                 gap: 8px;
                 padding: var(--space-md) 0 var(--space-xs);
             }
-
             .group-heading:first-child { padding-top: var(--space-sm); }
-
             .group-heading h3 {
                 font-size: var(--text-sm);
                 font-weight: 600;
                 color: var(--color-heading);
                 letter-spacing: -0.01em;
             }
-
             .group-heading .badge {
                 font-family: var(--font-mono);
                 font-size: var(--text-xs);
-                color: var(--color-text-secondary);
+                color: var(--color-text-muted);
+                background: var(--color-surface);
+                padding: 1px 7px;
+                border-radius: 999px;
             }
 
             .todo-row {
                 display: flex;
                 align-items: flex-start;
-                gap: 10px;
-                padding: 10px 14px;
+                gap: 12px;
+                padding: 12px 16px;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 8px;
-                margin-bottom: 3px;
-                transition: background var(--duration-fast) var(--ease-out);
+                border-radius: 14px;
+                margin-bottom: 4px;
                 cursor: pointer;
+                transition: all var(--duration-fast) var(--ease-out);
+                -webkit-tap-highlight-color: transparent;
             }
-
             .todo-row:hover { background: var(--color-surface-hover); }
-
+            .todo-row:active { transform: scale(0.99); }
             .todo-pip {
                 width: 3px;
-                min-height: 18px;
+                min-height: 20px;
                 align-self: stretch;
                 background: var(--color-accent);
                 border-radius: 2px;
                 flex-shrink: 0;
             }
-
             .todo-check {
-                width: 18px;
-                height: 18px;
-                margin-top: 1px;
+                width: 22px;
+                height: 22px;
                 flex-shrink: 0;
-                border-radius: 4px;
-                border: 1.5px solid var(--color-border-emphasis);
+                border-radius: 6px;
+                border: 2px solid var(--color-border-emphasis);
                 background: var(--color-surface-hover);
-                transition: all var(--duration-fast) var(--ease-out);
+                transition: all var(--duration-fast) var(--ease-spring);
                 position: relative;
             }
-
             .todo-check.checked {
                 background: var(--accent-muted);
                 border-color: var(--color-accent);
+                transform: scale(0.9);
             }
-
             .todo-check.checked::after {
                 content: '';
                 position: absolute;
-                top: 2px;
-                left: 5px;
+                top: 3px;
+                left: 6px;
                 width: 5px;
-                height: 9px;
+                height: 10px;
                 border: solid var(--color-accent);
-                border-width: 0 2px 2px 0;
+                border-width: 0 2.5px 2.5px 0;
                 transform: rotate(45deg);
             }
-
             .todo-text {
                 font-size: var(--text-sm);
                 line-height: 1.5;
                 color: var(--color-text);
                 flex: 1;
+                padding-top: 1px;
             }
-
-            .todo-row.saving .todo-check {
-                border-color: var(--color-warning);
-            }
-
             .todo-row.completed .todo-text {
-                color: var(--color-text-secondary);
+                color: var(--color-text-muted);
                 text-decoration: line-through;
+                text-decoration-color: var(--color-text-disabled);
             }
-
             .todo-row.completed .todo-pip { display: none; }
-            .todo-row.completed { background: var(--color-surface); border-color: transparent; }
+            .todo-row.completed {
+                background: transparent;
+                border-color: transparent;
+                opacity: 0.7;
+            }
+            .todo-row.completed:hover { background: var(--color-surface); opacity: 1; }
 
             /* ── Completed Toggle ────────────────────── */
             .completed-divider {
@@ -384,7 +382,6 @@
                 background: var(--color-border);
                 margin: var(--space-md) 0 0;
             }
-
             .completed-toggle {
                 display: flex;
                 align-items: center;
@@ -392,64 +389,78 @@
                 padding: 10px 0;
                 cursor: pointer;
                 user-select: none;
+                -webkit-tap-highlight-color: transparent;
             }
-
             .completed-toggle:hover .toggle-label { color: var(--color-text); }
-
             .toggle-arrow {
                 font-size: 11px;
                 color: var(--color-text-secondary);
                 transition: transform var(--duration-fast) var(--ease-out);
                 display: inline-block;
             }
-
             .toggle-arrow.open { transform: rotate(90deg); }
-
             .toggle-label {
                 font-size: var(--text-sm);
                 font-weight: 600;
                 color: var(--color-text-secondary);
                 transition: color var(--duration-fast) var(--ease-out);
             }
-
             .toggle-badge {
                 font-family: var(--font-mono);
                 font-size: var(--text-xs);
                 color: var(--color-accent);
-                background: var(--color-surface-hover);
-                padding: 1px 7px;
-                border-radius: 10px;
+                background: var(--accent-subtle);
+                padding: 2px 8px;
+                border-radius: 999px;
             }
-
             .completed-list { display: none; }
             .completed-list.open { display: block; }
+
+            /* ── Skeleton Loading ────────────────────── */
+            .skeleton-group { padding-top: var(--space-md); }
+            .skeleton-heading {
+                width: 140px;
+                height: 16px;
+                background: var(--color-surface-hover);
+                border-radius: 8px;
+                margin-bottom: var(--space-sm);
+            }
+            .skeleton-row {
+                height: 48px;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 14px;
+                margin-bottom: 4px;
+                overflow: hidden;
+                position: relative;
+            }
+            .skeleton-row::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(90deg, transparent 25%, var(--color-surface-hover) 50%, transparent 75%);
+                background-size: 200% 100%;
+                animation: shimmer 1.5s ease-in-out infinite;
+            }
+            @keyframes shimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+            }
 
             /* ── States ──────────────────────────────── */
             .state-msg {
                 text-align: center;
-                padding: 60px 0;
+                padding: 48px 0;
             }
-
             .state-msg h3 {
                 font-size: var(--text-base);
                 color: var(--color-text-secondary);
                 font-weight: 500;
             }
-
             .state-msg p {
                 font-size: var(--text-sm);
                 color: var(--color-text-muted);
                 margin-top: var(--space-xs);
-            }
-
-            .dot-pulse {
-                display: inline-block;
-                animation: pulse 1.4s infinite;
-            }
-
-            @keyframes pulse {
-                0%, 80% { opacity: 1; }
-                40% { opacity: 0.3; }
             }
 
             /* ── Footer ──────────────────────────────── */
@@ -461,12 +472,11 @@
                 margin-top: var(--space-sm);
                 border-top: 1px solid var(--color-border);
             }
-
             .footer-count {
+                font-family: var(--font-mono);
                 font-size: var(--text-xs);
                 color: var(--color-text-secondary);
             }
-
             .footer-note {
                 font-size: var(--text-xs);
                 color: var(--color-text-muted);
@@ -476,11 +486,12 @@
             @media (max-width: 480px) {
                 .container { padding: 0 12px 32px; }
                 header { margin: 0 -12px; padding: 0 12px; }
-                .todo-row { padding: 8px 10px; }
-                .filter-btn { padding: 5px 10px; }
+                .todo-row { padding: 12px; gap: 10px; }
+                .todo-check { width: 24px; height: 24px; }
+                .todo-check.checked::after { top: 4px; left: 7px; }
+                .filter-btn { padding: 6px 10px; }
                 .footer { flex-direction: column; gap: 4px; align-items: flex-start; }
             }
-
             @media (prefers-reduced-motion: reduce) {
                 *, *::before, *::after {
                     animation-duration: 0.01ms !important;
@@ -495,14 +506,32 @@
         <header>
             <div class="accent-bar"></div>
             <div class="header-inner">
-                <div class="header-title">To-Do Dashboard</div>
-                <div class="header-sync" id="sync-status"><span class="dot-pulse">&bull;</span> Loading</div>
+                <div class="header-left">
+                    <h1>To-Do</h1>
+                    <div class="header-date" id="header-date"></div>
+                </div>
+                <div class="header-right">
+                    <span class="sync-status" id="sync-status"></span>
+                    <button class="refresh-btn" id="refresh-btn" title="Refresh">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 8a5.5 5.5 0 0 1 9.3-4"/><path d="M13.5 8a5.5 5.5 0 0 1-9.3 4"/><path d="M11.5 1.5v3h3"/><path d="M4.5 14.5v-3h-3"/></svg>
+                    </button>
+                </div>
             </div>
         </header>
         <div id="app">
-            <div class="state-msg">
-                <h3><span class="dot-pulse">&bull;</span> Loading tasks from Notion</h3>
-                <p>Fetching your to-do items...</p>
+            <div class="progress-section">
+                <div class="progress-track"><div class="progress-fill low" style="width:0"></div></div>
+            </div>
+            <div class="skeleton-group">
+                <div class="skeleton-heading"></div>
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+            </div>
+            <div class="skeleton-group">
+                <div class="skeleton-heading" style="width:100px"></div>
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
             </div>
         </div>
     </div>
@@ -513,7 +542,20 @@
         var data = null;
         var filterMode = 'all';
         var completedExpanded = false;
+        var searchQuery = '';
         var refreshTimer = null;
+        var refreshBtn = document.getElementById('refresh-btn');
+
+        // Show today's date in header
+        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var now = new Date();
+        document.getElementById('header-date').textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+
+        refreshBtn.addEventListener('click', function() {
+            refreshBtn.classList.add('spinning');
+            load();
+        });
 
         function load() {
             fetch('/api/todos')
@@ -521,14 +563,16 @@
                 .then(function(d) {
                     if (d.error) throw new Error(d.error);
                     data = d;
+                    refreshBtn.classList.remove('spinning');
                     updateSyncStatus();
                     render();
                     scheduleRefresh();
                 })
                 .catch(function(e) {
+                    refreshBtn.classList.remove('spinning');
                     var el = document.getElementById('sync-status');
                     el.textContent = 'Error';
-                    el.className = 'header-sync error';
+                    el.className = 'sync-status error';
                     app.textContent = '';
                     var msg = document.createElement('div');
                     msg.className = 'state-msg';
@@ -553,33 +597,27 @@
 
         function updateSyncStatus() {
             var el = document.getElementById('sync-status');
-            if (!data || !data.lastSynced) { el.textContent = 'Not synced'; el.className = 'header-sync error'; return; }
+            if (!data || !data.lastSynced) { el.textContent = 'Not synced'; el.className = 'sync-status error'; return; }
             var ago = Math.round((Date.now() - new Date(data.lastSynced).getTime()) / 60000);
-            if (ago < 1) el.textContent = 'Synced just now';
-            else if (ago < 60) el.textContent = 'Synced ' + ago + 'm ago';
-            else el.textContent = 'Synced ' + Math.round(ago / 60) + 'h ago';
-            el.className = 'header-sync' + (ago > 5 ? ' stale' : '');
+            if (ago < 1) el.textContent = 'Just now';
+            else if (ago < 60) el.textContent = ago + 'm ago';
+            else el.textContent = Math.round(ago / 60) + 'h ago';
+            el.className = 'sync-status' + (ago > 5 ? ' stale' : '');
         }
 
         function getTodayStr() {
             var d = new Date();
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
-
         function getWeekRange() {
-            var today = new Date();
-            var day = today.getDay();
-            var monday = new Date(today);
-            monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
-            var sunday = new Date(monday);
-            sunday.setDate(monday.getDate() + 6);
+            var today = new Date(), day = today.getDay();
+            var monday = new Date(today); monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+            var sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
             return { start: fmtDate(monday), end: fmtDate(sunday) };
         }
-
         function fmtDate(d) {
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
-
         function extractDate(heading) {
             var m = heading.match(/(\d{4}-\d{2}-\d{2})/);
             return m ? m[1] : null;
@@ -588,32 +626,28 @@
         function filterTodos() {
             var todayStr = getTodayStr();
             var source = data.todos;
-            if (filterMode === 'today') {
-                source = source.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
-            } else if (filterMode === 'week') {
+            if (filterMode === 'today') source = source.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
+            else if (filterMode === 'week') {
                 var range = getWeekRange();
-                source = source.filter(function(t) {
-                    var d = extractDate(t.heading);
-                    return d && d >= range.start && d <= range.end;
-                });
+                source = source.filter(function(t) { var d = extractDate(t.heading); return d && d >= range.start && d <= range.end; });
+            }
+            if (searchQuery) {
+                var q = searchQuery;
+                source = source.filter(function(t) { return t.text.toLowerCase().indexOf(q) !== -1 || t.heading.toLowerCase().indexOf(q) !== -1; });
             }
             var active = [], completed = [];
             for (var i = 0; i < source.length; i++) {
                 var t = source[i];
-                if (!t.checked) { active.push(t); }
-                else {
-                    var d = extractDate(t.heading);
-                    if (!d || d === todayStr) completed.push(t);
-                }
+                if (!t.checked) active.push(t);
+                else { var d = extractDate(t.heading); if (!d || d === todayStr) completed.push(t); }
             }
             return { active: active, completed: completed };
         }
 
         function todayProgress() {
             var todayStr = getTodayStr();
-            var todayTodos = data.todos.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
-            var done = todayTodos.filter(function(t) { return t.checked; }).length;
-            return { done: done, total: todayTodos.length };
+            var tt = data.todos.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
+            return { done: tt.filter(function(t) { return t.checked; }).length, total: tt.length };
         }
 
         function groupByHeading(todos) {
@@ -627,41 +661,33 @@
         }
 
         function toggleTodo(todo) {
-            var newChecked = !todo.checked;
-            todo.checked = newChecked;
+            var nc = !todo.checked;
+            todo.checked = nc;
             render();
             fetch('/api/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: todo.id, checked: newChecked })
-            }).then(function(r) {
-                if (!r.ok) { todo.checked = !newChecked; render(); }
-            }).catch(function() {
-                todo.checked = !newChecked;
-                render();
-            });
+                body: JSON.stringify({ id: todo.id, checked: nc })
+            }).then(function(r) { if (!r.ok) { todo.checked = !nc; render(); } })
+              .catch(function() { todo.checked = !nc; render(); });
         }
 
         function makeRow(todo) {
             var row = document.createElement('div');
             row.className = 'todo-row' + (todo.checked ? ' completed' : '');
             row.addEventListener('click', function() { toggleTodo(todo); });
-
             if (!todo.checked) {
                 var pip = document.createElement('div');
                 pip.className = 'todo-pip';
                 row.appendChild(pip);
             }
-
             var check = document.createElement('div');
             check.className = 'todo-check' + (todo.checked ? ' checked' : '');
             row.appendChild(check);
-
             var txt = document.createElement('span');
             txt.className = 'todo-text';
             txt.textContent = todo.text;
             row.appendChild(txt);
-
             return row;
         }
 
@@ -671,9 +697,8 @@
             var active = result.active, completed = result.completed;
             var progress = todayProgress();
             var pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-            var pctWidth = progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
+            var pctW = progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
             var fillClass = pct >= 75 ? 'high' : pct >= 40 ? 'mid' : 'low';
-
             var frag = document.createDocumentFragment();
 
             // Progress
@@ -683,7 +708,7 @@
             ph.className = 'progress-header';
             var pl = document.createElement('span');
             pl.className = 'progress-label';
-            pl.textContent = progress.total > 0 ? 'Today: ' + progress.done + '/' + progress.total + ' done' : 'Today: no tasks';
+            pl.textContent = progress.total > 0 ? 'Today: ' + progress.done + '/' + progress.total : 'Today: no tasks';
             ph.appendChild(pl);
             if (progress.total > 0) {
                 var pp = document.createElement('span');
@@ -697,7 +722,7 @@
             track.className = 'progress-track';
             var fill = document.createElement('div');
             fill.className = 'progress-fill ' + fillClass;
-            fill.style.width = pctWidth + '%';
+            fill.style.width = pctW + '%';
             track.appendChild(fill);
             ps.appendChild(track);
             frag.appendChild(ps);
@@ -707,7 +732,7 @@
             tb.className = 'toolbar';
             var fg = document.createElement('div');
             fg.className = 'filter-group';
-            var filters = [['All', 'all'], ['Today', 'today'], ['This Week', 'week']];
+            var filters = [['All', 'all'], ['Today', 'today'], ['Week', 'week']];
             for (var fi = 0; fi < filters.length; fi++) {
                 var btn = document.createElement('button');
                 btn.className = 'filter-btn' + (filterMode === filters[fi][1] ? ' active' : '');
@@ -717,32 +742,38 @@
                 fg.appendChild(btn);
             }
             tb.appendChild(fg);
-            var tr = document.createElement('div');
-            tr.className = 'toolbar-right';
             var ic = document.createElement('span');
             ic.className = 'item-count';
             ic.textContent = active.length + ' active';
-            tr.appendChild(ic);
-            var rb = document.createElement('button');
-            rb.className = 'refresh-btn';
-            rb.textContent = 'Refresh';
-            rb.addEventListener('click', function() { rb.disabled = true; rb.textContent = 'Syncing...'; load(); });
-            tr.appendChild(rb);
-            tb.appendChild(tr);
+            tb.appendChild(ic);
             frag.appendChild(tb);
+
+            // Search
+            var sb = document.createElement('div');
+            sb.className = 'search-bar';
+            var si = document.createElement('span');
+            si.className = 'search-icon';
+            si.textContent = '\u2315';
+            sb.appendChild(si);
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'search-input';
+            input.placeholder = 'Search tasks...';
+            input.value = searchQuery;
+            input.addEventListener('input', function() { searchQuery = this.value.toLowerCase(); render(); });
+            sb.appendChild(input);
+            frag.appendChild(sb);
 
             // List
             var list = document.createElement('div');
             list.className = 'todo-list';
-
             if (active.length === 0 && completed.length === 0) {
-                var msg = filterMode === 'today' ? 'No tasks for today' : filterMode === 'week' ? 'No tasks this week' : 'No tasks';
                 var empty = document.createElement('div');
                 empty.className = 'state-msg';
                 var eh = document.createElement('h3');
-                eh.textContent = msg;
+                eh.textContent = searchQuery ? 'No matches' : filterMode === 'today' ? 'No tasks for today' : filterMode === 'week' ? 'No tasks this week' : 'All clear';
                 var ep = document.createElement('p');
-                ep.textContent = 'Check back later.';
+                ep.textContent = searchQuery ? 'Try a different search.' : 'Nothing to do right now.';
                 empty.appendChild(eh);
                 empty.appendChild(ep);
                 list.appendChild(empty);
@@ -760,16 +791,12 @@
                     ghB.textContent = g.items.length;
                     gh.appendChild(ghB);
                     list.appendChild(gh);
-                    for (var ti = 0; ti < g.items.length; ti++) {
-                        list.appendChild(makeRow(g.items[ti]));
-                    }
+                    for (var ti = 0; ti < g.items.length; ti++) list.appendChild(makeRow(g.items[ti]));
                 }
-
                 if (completed.length > 0) {
                     var div = document.createElement('div');
                     div.className = 'completed-divider';
                     list.appendChild(div);
-
                     var toggle = document.createElement('div');
                     toggle.className = 'completed-toggle';
                     toggle.addEventListener('click', function() { completedExpanded = !completedExpanded; render(); });
@@ -786,12 +813,9 @@
                     tbd.textContent = completed.length;
                     toggle.appendChild(tbd);
                     list.appendChild(toggle);
-
                     var cl = document.createElement('div');
                     cl.className = 'completed-list' + (completedExpanded ? ' open' : '');
-                    for (var ci = 0; ci < completed.length; ci++) {
-                        cl.appendChild(makeRow(completed[ci]));
-                    }
+                    for (var ci = 0; ci < completed.length; ci++) cl.appendChild(makeRow(completed[ci]));
                     list.appendChild(cl);
                 }
             }
@@ -802,16 +826,22 @@
             footer.className = 'footer';
             var fc = document.createElement('span');
             fc.className = 'footer-count';
-            fc.textContent = active.length + ' active \u00b7 ' + completed.length + ' done today';
+            fc.textContent = active.length + ' active \u00b7 ' + completed.length + ' done';
             footer.appendChild(fc);
             var fn = document.createElement('span');
             fn.className = 'footer-note';
-            fn.textContent = 'Refreshes every 2 min';
+            fn.textContent = 'Auto-refreshes every 2 min';
             footer.appendChild(fn);
             frag.appendChild(footer);
 
             while (app.firstChild) app.removeChild(app.firstChild);
             app.appendChild(frag);
+
+            // Re-focus search if it was active
+            if (searchQuery) {
+                var si2 = app.querySelector('.search-input');
+                if (si2) { si2.focus(); si2.setSelectionRange(si2.value.length, si2.value.length); }
+            }
         }
 
         load();
