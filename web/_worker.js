@@ -238,6 +238,20 @@ export default {
             return jsonResp({ ok: true });
         }
 
+        // ── Preferences sync (Cloudflare KV) ──
+        if (url.pathname === '/api/prefs' && request.method === 'GET') {
+            if (!env.TODO_PREFS) return jsonResp({ error: 'KV not configured' }, 500);
+            const raw = await env.TODO_PREFS.get('prefs');
+            return jsonResp(raw ? JSON.parse(raw) : {});
+        }
+
+        if (url.pathname === '/api/prefs' && request.method === 'POST') {
+            if (!env.TODO_PREFS) return jsonResp({ error: 'KV not configured' }, 500);
+            const body = await request.json();
+            await env.TODO_PREFS.put('prefs', JSON.stringify(body));
+            return jsonResp({ ok: true });
+        }
+
         return env.ASSETS.fetch(request);
     }
 };

@@ -103,6 +103,7 @@
                 line-height: 1.6;
                 min-height: 100vh;
                 min-height: 100dvh;
+                min-width: 280px;
                 padding-top: env(safe-area-inset-top);
                 padding-bottom: env(safe-area-inset-bottom);
             }
@@ -349,31 +350,34 @@
             .drag-handle:active { cursor: grabbing; }
             .flat-mode .drag-handle { display: flex; }
             .divider-row {
-                justify-content: center;
-                padding: 6px 16px;
+                padding: 4px 16px;
                 background: transparent;
-                border: 1px dashed var(--color-border-emphasis);
-                cursor: default;
+                border: none;
+                cursor: grab;
+                align-items: center;
+                gap: 8px;
+                min-height: auto;
             }
-            .divider-row:hover { background: var(--color-surface); }
-            .divider-label {
+            .divider-row:active { cursor: grabbing; }
+            .divider-row .drag-handle { display: flex; opacity: 0; }
+            .divider-row:hover .drag-handle { opacity: 0.5; }
+            .divider-line {
                 flex: 1;
-                font-family: var(--font-mono);
-                font-size: var(--text-xs);
-                color: var(--color-text-muted);
-                text-align: center;
-                outline: none;
-                min-width: 20px;
+                height: 2px;
+                background: var(--color-accent);
+                border-radius: 1px;
             }
-            .divider-label:focus { color: var(--color-text); border-bottom: 1px solid var(--color-accent); }
+            .divider-row:hover .divider-line { opacity: 0.8; }
             .divider-delete {
                 color: var(--color-text-disabled);
                 cursor: pointer;
-                font-size: 16px;
-                padding: 0 4px;
-                transition: color var(--duration-fast);
+                font-size: 14px;
+                padding: 0 2px;
+                opacity: 0;
+                transition: opacity var(--duration-fast), color var(--duration-fast);
             }
-            .divider-delete:hover { color: var(--color-danger); }
+            .divider-row:hover .divider-delete { opacity: 0.5; }
+            .divider-delete:hover { color: var(--color-danger); opacity: 1 !important; }
             .add-divider-btn {
                 display: block;
                 width: 100%;
@@ -673,6 +677,11 @@
                 .filter-btn { padding: 6px 10px; }
                 .footer { flex-direction: column; gap: 4px; align-items: flex-start; }
             }
+            @media (max-width: 360px) {
+                .container { padding: 0 8px 32px; }
+                .todo-row { padding: 10px 10px; gap: 8px; }
+                .filter-btn { padding: 5px 8px; font-size: var(--text-xs); }
+            }
             /* ── Swipe-to-complete ───────────────── */
             .todo-row-wrapper {
                 position: relative;
@@ -758,21 +767,6 @@
                 cursor: text;
             }
 
-            /* ── Delete button ─────────────────────── */
-            .delete-btn {
-                flex-shrink: 0;
-                background: none;
-                border: none;
-                font-size: 14px;
-                cursor: pointer;
-                color: var(--color-text-disabled);
-                padding: 0 2px;
-                line-height: 1;
-                opacity: 0;
-                transition: color var(--duration-fast), opacity var(--duration-fast);
-            }
-            .todo-row:hover .delete-btn { opacity: 1; }
-            .delete-btn:hover { color: var(--color-danger); }
 
             /* ── Snooze Button ──────────────────────── */
             .snooze-btn {
@@ -949,6 +943,7 @@
         });
 
         var needsFreshFetch = false;
+        var prefsLoaded = false;
         function load() {
             var url = '/api/todos';
             var opts = {};
@@ -957,6 +952,8 @@
                 opts.cache = 'no-store';
                 needsFreshFetch = false;
             }
+            // Pull synced prefs alongside todos on first load
+            var prefsFetch = !prefsLoaded ? pullPrefs().then(function() { prefsLoaded = true; }) : Promise.resolve();
             fetch(url, opts)
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
@@ -964,7 +961,8 @@
                     data = d;
                     refreshBtn.classList.remove('spinning');
                     updateSyncStatus();
-                    render();
+                    return prefsFetch.then(function() { render(); });
+                }).then(function() {
                     scheduleRefresh();
                 })
                 .catch(function(e) {
@@ -1124,8 +1122,8 @@
         var customOrder = JSON.parse(localStorage.getItem('todo-custom-order') || '[]'); // array of IDs (task or divider)
         var dividers = JSON.parse(localStorage.getItem('todo-dividers') || '{}'); // { id: label }
 
-        function saveOrder() { localStorage.setItem('todo-custom-order', JSON.stringify(customOrder)); }
-        function saveDividers() { localStorage.setItem('todo-dividers', JSON.stringify(dividers)); }
+        function saveOrder() { localStorage.setItem('todo-custom-order', JSON.stringify(customOrder)); if (typeof syncPrefsDebounced === 'function') syncPrefsDebounced(); }
+        function saveDividers() { localStorage.setItem('todo-dividers', JSON.stringify(dividers)); if (typeof syncPrefsDebounced === 'function') syncPrefsDebounced(); }
 
         function applyCustomOrder(tasks) {
             if (customOrder.length === 0) return tasks;
@@ -1138,9 +1136,14 @@
                 if (byId[oid]) { ordered.push(byId[oid]); delete byId[oid]; }
                 else if (dividers[oid]) { ordered.push({ id: oid, text: dividers[oid], _divider: true }); }
             }
-            // Append any new tasks not in saved order (at the top)
+            // Integrate new tasks into customOrder so drag-drop can find them
             var unsorted = [];
             for (var k in byId) unsorted.push(byId[k]);
+            if (unsorted.length > 0) {
+                var newIds = unsorted.map(function(t) { return t.id; });
+                customOrder = newIds.concat(customOrder);
+                saveOrder();
+            }
             return unsorted.concat(ordered);
         }
 
@@ -1170,7 +1173,7 @@
 
         // Pinned / starred tasks (persisted in localStorage)
         var pinnedIds = JSON.parse(localStorage.getItem('todo-pinned') || '[]');
-        function savePinned() { localStorage.setItem('todo-pinned', JSON.stringify(pinnedIds)); }
+        function savePinned() { localStorage.setItem('todo-pinned', JSON.stringify(pinnedIds)); if (typeof syncPrefsDebounced === 'function') syncPrefsDebounced(); }
         function togglePin(todoId) {
             var idx = pinnedIds.indexOf(todoId);
             if (idx === -1) pinnedIds.push(todoId);
@@ -1304,7 +1307,7 @@
 
         // Pip colors (persisted in localStorage)
         var pipColors = JSON.parse(localStorage.getItem('todo-pip-colors') || '{}'); // { taskId: 'green'|'blue'|'purple'|'red' }
-        function savePipColors() { localStorage.setItem('todo-pip-colors', JSON.stringify(pipColors)); }
+        function savePipColors() { localStorage.setItem('todo-pip-colors', JSON.stringify(pipColors)); syncPrefsDebounced(); }
 
         function showPipMenu(e, todoId) {
             e.preventDefault();
@@ -1349,7 +1352,38 @@
         // Requester tags (persisted in localStorage)
         var requesterNames = ['Zach', 'Megan', 'Owen'];
         var requesters = JSON.parse(localStorage.getItem('todo-requesters') || '{}'); // { taskId: 'Zach' }
-        function saveRequesters() { localStorage.setItem('todo-requesters', JSON.stringify(requesters)); }
+        function saveRequesters() { localStorage.setItem('todo-requesters', JSON.stringify(requesters)); syncPrefsDebounced(); }
+
+        // ── Cross-client sync via Cloudflare KV ──
+        var _syncTimer = null;
+        function syncPrefsDebounced() {
+            clearTimeout(_syncTimer);
+            _syncTimer = setTimeout(pushPrefs, 500);
+        }
+        function pushPrefs() {
+            var payload = {
+                customOrder: customOrder,
+                dividers: dividers,
+                pinnedIds: pinnedIds,
+                pipColors: pipColors,
+                requesters: requesters
+            };
+            fetch('/api/prefs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(function() {});
+        }
+        function pullPrefs() {
+            return fetch('/api/prefs').then(function(r) { return r.json(); }).then(function(p) {
+                if (!p || p.error) return;
+                if (p.customOrder && p.customOrder.length > 0) { customOrder = p.customOrder; localStorage.setItem('todo-custom-order', JSON.stringify(customOrder)); }
+                if (p.dividers && Object.keys(p.dividers).length > 0) { dividers = p.dividers; localStorage.setItem('todo-dividers', JSON.stringify(dividers)); }
+                if (p.pinnedIds) { pinnedIds = p.pinnedIds; localStorage.setItem('todo-pinned', JSON.stringify(pinnedIds)); }
+                if (p.pipColors) { pipColors = p.pipColors; localStorage.setItem('todo-pip-colors', JSON.stringify(pipColors)); }
+                if (p.requesters) { requesters = p.requesters; localStorage.setItem('todo-requesters', JSON.stringify(requesters)); }
+            }).catch(function() {});
+        }
 
         function showRequesterMenu(e, todoId) {
             e.preventDefault();
@@ -1531,20 +1565,16 @@
             handle.textContent = '\u2847'; // ⠇ braille dots
             row.appendChild(handle);
 
-            var label = document.createElement('span');
-            label.className = 'divider-label';
-            label.textContent = item.text;
-            label.contentEditable = true;
-            label.addEventListener('click', function(e) { e.stopPropagation(); });
-            label.addEventListener('blur', function() { dividers[item.id] = label.textContent.trim() || '── ── ──'; saveDividers(); });
-            label.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); label.blur(); } });
-            row.appendChild(label);
+            var line = document.createElement('span');
+            line.className = 'divider-line';
+            row.appendChild(line);
 
             var del = document.createElement('span');
             del.className = 'divider-delete';
             del.textContent = '\u00d7';
             del.addEventListener('click', function(e) { e.stopPropagation(); removeDivider(item.id); });
             row.appendChild(del);
+
             return row;
         }
 
@@ -1694,13 +1724,6 @@
             star.title = isPinned(todo.id) ? 'Unpin' : 'Pin to top';
             star.addEventListener('click', function(e) { e.stopPropagation(); togglePin(todo.id); });
             row.appendChild(star);
-
-            var del = document.createElement('button');
-            del.className = 'delete-btn';
-            del.textContent = '\u00d7';
-            del.title = 'Delete';
-            del.addEventListener('click', function(e) { e.stopPropagation(); deleteTodo(todo); });
-            row.appendChild(del);
 
             wrapper.appendChild(row);
             return wrapper;
