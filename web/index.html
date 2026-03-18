@@ -432,6 +432,37 @@
                 border-radius: 2px;
                 flex-shrink: 0;
             }
+            .todo-pip.pip-blue { background: var(--color-secondary); }
+            .todo-pip.pip-purple { background: oklch(0.65 0.22 300); }
+            .todo-pip.pip-red { background: var(--color-danger); }
+            .todo-pip.pip-green { background: var(--color-accent); }
+
+            /* ── Pip Color Menu ─────────────────────── */
+            .pip-menu {
+                position: fixed;
+                z-index: 100;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border-emphasis);
+                border-radius: 10px;
+                padding: 6px;
+                display: flex;
+                gap: 6px;
+                box-shadow: var(--shadow-md);
+            }
+            .pip-menu-dot {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid transparent;
+                transition: transform var(--duration-fast) var(--ease-spring), border-color var(--duration-fast);
+            }
+            .pip-menu-dot:hover { transform: scale(1.2); }
+            .pip-menu-dot.selected { border-color: var(--color-text); }
+            .pip-menu-dot.dot-green { background: var(--color-accent); }
+            .pip-menu-dot.dot-blue { background: var(--color-secondary); }
+            .pip-menu-dot.dot-purple { background: oklch(0.65 0.22 300); }
+            .pip-menu-dot.dot-red { background: var(--color-danger); }
             .todo-check {
                 width: 22px;
                 height: 22px;
@@ -814,6 +845,49 @@
             render();
         }
 
+        // Pip colors (persisted in localStorage)
+        var pipColors = JSON.parse(localStorage.getItem('todo-pip-colors') || '{}'); // { taskId: 'green'|'blue'|'purple'|'red' }
+        function savePipColors() { localStorage.setItem('todo-pip-colors', JSON.stringify(pipColors)); }
+
+        function showPipMenu(e, todoId) {
+            e.preventDefault();
+            e.stopPropagation();
+            closePipMenu();
+            var menu = document.createElement('div');
+            menu.className = 'pip-menu';
+            menu.id = 'pip-menu';
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            var colors = ['green', 'blue', 'purple', 'red'];
+            var current = pipColors[todoId] || 'green';
+            for (var i = 0; i < colors.length; i++) {
+                var dot = document.createElement('div');
+                dot.className = 'pip-menu-dot dot-' + colors[i] + (colors[i] === current ? ' selected' : '');
+                dot.setAttribute('data-color', colors[i]);
+                dot.addEventListener('click', (function(c) {
+                    return function(ev) {
+                        ev.stopPropagation();
+                        if (c === 'green') delete pipColors[todoId];
+                        else pipColors[todoId] = c;
+                        savePipColors();
+                        closePipMenu();
+                        render();
+                    };
+                })(colors[i]));
+                menu.appendChild(dot);
+            }
+            document.body.appendChild(menu);
+            // Close on click outside
+            setTimeout(function() {
+                document.addEventListener('click', closePipMenu, { once: true });
+                document.addEventListener('contextmenu', closePipMenu, { once: true });
+            }, 0);
+        }
+        function closePipMenu() {
+            var m = document.getElementById('pip-menu');
+            if (m) m.remove();
+        }
+
         // Drag and drop state
         var dragId = null;
 
@@ -946,9 +1020,12 @@
             row.appendChild(handle);
 
             if (!todo.checked) {
+                var pipColor = pipColors[todo.id] || 'green';
                 var pip = document.createElement('div');
-                pip.className = 'todo-pip';
+                pip.className = 'todo-pip pip-' + pipColor;
+                pip.addEventListener('contextmenu', (function(tid) { return function(ev) { showPipMenu(ev, tid); }; })(todo.id));
                 row.appendChild(pip);
+                row.addEventListener('contextmenu', (function(tid) { return function(ev) { showPipMenu(ev, tid); }; })(todo.id));
             }
             var check = document.createElement('div');
             check.className = 'todo-check' + (todo.checked ? ' checked' : '');
