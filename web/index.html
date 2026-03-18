@@ -1121,6 +1121,14 @@
                 btn.addEventListener('click', function() { filterMode = this.getAttribute('data-mode'); render(); });
                 fg.appendChild(btn);
             }
+            // Flat list toggle (before filters)
+            var flatBtn = document.createElement('button');
+            flatBtn.className = 'flat-toggle' + (flatMode ? ' active' : '');
+            flatBtn.title = flatMode ? 'Show grouped' : 'Show flat list';
+            flatBtn.textContent = '\u2261';
+            flatBtn.addEventListener('click', function() { flatMode = !flatMode; render(); });
+            tb.appendChild(flatBtn);
+
             tb.appendChild(fg);
 
             // Inline search
@@ -1138,14 +1146,6 @@
             input.addEventListener('input', function() { searchQuery = this.value.toLowerCase(); render(); });
             sb.appendChild(input);
             tb.appendChild(sb);
-
-            // Flat list toggle
-            var flatBtn = document.createElement('button');
-            flatBtn.className = 'flat-toggle' + (flatMode ? ' active' : '');
-            flatBtn.title = flatMode ? 'Show grouped' : 'Show flat list';
-            flatBtn.textContent = '\u2261'; // ≡ hamburger icon
-            flatBtn.addEventListener('click', function() { flatMode = !flatMode; render(); });
-            tb.appendChild(flatBtn);
 
             frag.appendChild(tb);
 
