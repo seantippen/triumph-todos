@@ -468,6 +468,45 @@
             .pip-menu-dot.dot-blue { background: oklch(0.65 0.28 260); }
             .pip-menu-dot.dot-purple { background: oklch(0.60 0.30 320); }
             .pip-menu-dot.dot-red { background: oklch(0.60 0.28 28); }
+
+            /* ── Requester Tag ────────────────────────── */
+            .requester-tag {
+                font-size: 10px;
+                font-weight: 500;
+                letter-spacing: 0.02em;
+                padding: 1px 6px;
+                border-radius: 4px;
+                background: oklch(1 0 0 / 0.06);
+                color: var(--color-text-muted);
+                white-space: nowrap;
+                flex-shrink: 0;
+                margin-left: auto;
+                margin-right: 2px;
+                line-height: 1.6;
+            }
+            .requester-menu {
+                position: fixed;
+                z-index: 100;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border-emphasis);
+                border-radius: 8px;
+                padding: 4px;
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                box-shadow: var(--shadow-md);
+                min-width: 90px;
+            }
+            .requester-menu-item {
+                padding: 5px 10px;
+                font-size: 12px;
+                cursor: pointer;
+                border-radius: 5px;
+                color: var(--color-text-secondary);
+                transition: background var(--duration-fast), color var(--duration-fast);
+            }
+            .requester-menu-item:hover { background: var(--color-surface-hover); color: var(--color-text); }
+            .requester-menu-item.selected { color: var(--color-accent); }
             .todo-check {
                 width: 22px;
                 height: 22px;
@@ -1138,6 +1177,52 @@
             if (m) m.remove();
         }
 
+        // Requester tags (persisted in localStorage)
+        var requesterNames = ['Zach', 'Megan', 'Owen'];
+        var requesters = JSON.parse(localStorage.getItem('todo-requesters') || '{}'); // { taskId: 'Zach' }
+        function saveRequesters() { localStorage.setItem('todo-requesters', JSON.stringify(requesters)); }
+
+        function showRequesterMenu(e, todoId) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeRequesterMenu();
+            var menu = document.createElement('div');
+            menu.className = 'requester-menu';
+            menu.id = 'requester-menu';
+            menu.style.left = Math.min(e.clientX, window.innerWidth - 110) + 'px';
+            menu.style.top = Math.min(e.clientY, window.innerHeight - (requesterNames.length + 1) * 30 - 8) + 'px';
+            var current = requesters[todoId] || '';
+            // "None" option
+            var none = document.createElement('div');
+            none.className = 'requester-menu-item' + (!current ? ' selected' : '');
+            none.textContent = 'None';
+            none.addEventListener('click', function(ev) { ev.stopPropagation(); delete requesters[todoId]; saveRequesters(); closeRequesterMenu(); render(); });
+            menu.appendChild(none);
+            for (var i = 0; i < requesterNames.length; i++) {
+                var item = document.createElement('div');
+                item.className = 'requester-menu-item' + (requesterNames[i] === current ? ' selected' : '');
+                item.textContent = requesterNames[i];
+                item.addEventListener('click', (function(name) {
+                    return function(ev) {
+                        ev.stopPropagation();
+                        requesters[todoId] = name;
+                        saveRequesters();
+                        closeRequesterMenu();
+                        render();
+                    };
+                })(requesterNames[i]));
+                menu.appendChild(item);
+            }
+            document.body.appendChild(menu);
+            setTimeout(function() {
+                document.addEventListener('click', closeRequesterMenu, { once: true });
+            }, 0);
+        }
+        function closeRequesterMenu() {
+            var m = document.getElementById('requester-menu');
+            if (m) m.remove();
+        }
+
         // Drag and drop state
         var dragId = null;
 
@@ -1402,6 +1487,22 @@
             txt.textContent = todo.text;
             if (!todo.checked) txt.title = 'Double-click to edit';
             row.appendChild(txt);
+
+            // Requester tag
+            if (!todo.checked) {
+                var reqName = requesters[todo.id];
+                var reqTag = document.createElement('span');
+                reqTag.className = 'requester-tag';
+                reqTag.textContent = reqName || '';
+                reqTag.style.cursor = 'pointer';
+                if (!reqName) reqTag.style.opacity = '0';
+                reqTag.title = reqName ? 'Requested by ' + reqName + ' (click to change)' : 'Assign requester';
+                reqTag.addEventListener('click', (function(tid) { return function(ev) { showRequesterMenu(ev, tid); }; })(todo.id));
+                // Show on hover even if empty
+                row.addEventListener('mouseenter', function() { if (!reqTag.textContent) { reqTag.textContent = '+'; reqTag.style.opacity = '0.4'; } });
+                row.addEventListener('mouseleave', function() { var n = requesters[todo.id]; if (!n) { reqTag.textContent = ''; reqTag.style.opacity = '0'; } });
+                row.appendChild(reqTag);
+            }
 
             // Star / pin button
             var star = document.createElement('button');
