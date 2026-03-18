@@ -335,8 +335,10 @@
             /* ── Todo List ───────────────────────────── */
             .todo-list { padding-top: 2px; }
             .todo-row.dragging { opacity: 0.4; }
-            .todo-row.drag-over-above { border-top: 2px solid var(--color-accent); margin-top: -2px; }
-            .todo-row.drag-over-below { border-bottom: 2px solid var(--color-accent); margin-bottom: 2px; }
+            .todo-row.drag-over-above { box-shadow: 0 -2px 0 0 var(--color-accent); }
+            .todo-row.drag-over-below { box-shadow: 0 2px 0 0 var(--color-accent); }
+            .todo-row-wrapper.drag-over-above { box-shadow: 0 -2px 0 0 var(--color-accent); border-radius: 14px; }
+            .todo-row-wrapper.drag-over-below { box-shadow: 0 2px 0 0 var(--color-accent); border-radius: 14px; }
             .drag-handle {
                 display: none;
                 align-items: center;
@@ -1554,7 +1556,7 @@
             row.className = 'todo-row divider-row';
             row.setAttribute('draggable', 'true');
             row.setAttribute('data-id', item.id);
-            row.addEventListener('dragstart', function(e) { dragId = item.id; if (!flatMode) { flatMode = true; } row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+            row.addEventListener('dragstart', function(e) { dragId = item.id; if (!flatMode) { flatMode = true; } row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); });
             row.addEventListener('dragend', function() { dragId = null; row.classList.remove('dragging'); clearDropIndicators(); });
             row.addEventListener('dragover', handleDragOver);
             row.addEventListener('dragleave', handleDragLeave);
@@ -1661,11 +1663,13 @@
                 }
                 row.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', '');
             });
             row.addEventListener('dragend', function() { dragId = null; row.classList.remove('dragging'); clearDropIndicators(); });
-            row.addEventListener('dragover', handleDragOver);
-            row.addEventListener('dragleave', handleDragLeave);
-            row.addEventListener('drop', handleDrop);
+            // Put drag target handlers on wrapper for reliable hit detection
+            wrapper.addEventListener('dragover', handleDragOver);
+            wrapper.addEventListener('dragleave', handleDragLeave);
+            wrapper.addEventListener('drop', handleDrop);
 
             var handle = document.createElement('span');
             handle.className = 'drag-handle';
