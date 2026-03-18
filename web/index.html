@@ -1315,6 +1315,7 @@
             undoStack.push({ type: 'toggle', todo: todo, prevChecked: todo.checked });
             if (undoStack.length > 30) undoStack.shift();
             todo.checked = nc;
+            if (nc) completedExpanded = true; // show completed section so task doesn't vanish
             render();
             fetch('/api/update', {
                 method: 'POST',
@@ -1389,15 +1390,19 @@
             row.className = 'todo-row' + (todo.checked ? ' completed' : '');
             row.setAttribute('draggable', 'true');
             row.setAttribute('data-id', todo.id);
+            // Delay single-click so double-click can cancel it
+            var clickTimer = null;
             row.addEventListener('click', function(e) {
                 if (e.target.classList.contains('drag-handle') || e.target.classList.contains('star-btn') || e.target.classList.contains('delete-btn') || e.target.classList.contains('todo-text-edit')) return;
-                toggleTodo(todo);
+                if (clickTimer) return; // already waiting
+                clickTimer = setTimeout(function() { clickTimer = null; toggleTodo(todo); }, 250);
             });
 
-            // Double-click to inline edit
+            // Double-click to inline edit — cancels the pending single-click toggle
             row.addEventListener('dblclick', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
                 if (e.target.classList.contains('star-btn') || e.target.classList.contains('drag-handle')) return;
                 var textEl = row.querySelector('.todo-text');
                 if (!textEl || row.querySelector('.todo-text-edit')) return;
