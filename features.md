@@ -46,8 +46,12 @@
 - Auto-refresh every 2 minutes, pauses when tab is hidden
 - Mobile-responsive down to 320px
 - **Dark/light mode** — toggle in header, persists via localStorage, follows style guide tokens
-- **Keyboard shortcuts** — N (add task), / (search), R (refresh), 1/2/3 (filter), L (toggle theme), Ctrl+Z (undo)
+- **Keyboard shortcuts** — N (add task), / (search), R (refresh), 1-4 (filter), L (toggle theme), Ctrl+Z (undo)
 - **Offline support** — service worker caches shell + last API response, works without network
+- **Snooze tasks** — hide a task until later today, tomorrow, or next week. Collapsed "Snoozed" section with wake times. Auto-wakes when time passes. Un-snooze anytime.
+- **Focus mode** — filter view showing only pinned/starred tasks. Zero clutter. Press 4 or click the Focus filter.
+- **Smart auto-archive** — completed tasks older than 24 hours automatically disappear from the completed section
+- **PWA quick-add shortcut** — long-press the app icon on mobile to jump straight to adding a task
 
 ## Infrastructure
 - Cloudflare Pages + Workers — global edge, sub-100ms responses

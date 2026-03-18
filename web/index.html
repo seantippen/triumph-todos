@@ -777,6 +777,74 @@
             .todo-row:hover .delete-btn { opacity: 1; }
             .delete-btn:hover { color: var(--color-danger); }
 
+            /* ── Snooze Button ──────────────────────── */
+            .snooze-btn {
+                flex-shrink: 0;
+                background: none;
+                border: none;
+                font-size: 14px;
+                cursor: pointer;
+                color: var(--color-text-disabled);
+                padding: 0 2px;
+                line-height: 1;
+                opacity: 0;
+                transition: color var(--duration-fast), opacity var(--duration-fast);
+            }
+            .todo-row:hover .snooze-btn { opacity: 1; }
+            .snooze-btn:hover { color: var(--color-secondary); }
+
+            /* ── Snooze Menu ────────────────────────── */
+            .snooze-menu {
+                position: fixed;
+                z-index: 100;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border-emphasis);
+                border-radius: 10px;
+                padding: 4px 0;
+                min-width: 150px;
+                box-shadow: var(--shadow-md);
+            }
+            .snooze-menu-item {
+                padding: 8px 14px;
+                font-size: var(--text-sm);
+                color: var(--color-text);
+                cursor: pointer;
+                transition: background var(--duration-fast);
+            }
+            .snooze-menu-item:hover { background: var(--color-surface-hover); }
+            .snooze-menu-item:first-child { border-radius: 10px 10px 0 0; }
+            .snooze-menu-item:last-child { border-radius: 0 0 10px 10px; }
+
+            /* ── Snoozed section (like completed) ──── */
+            .snoozed-toggle {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 0;
+                cursor: pointer;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .snoozed-toggle:hover .toggle-label { color: var(--color-text); }
+            .snoozed-list {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.35s var(--ease-out);
+            }
+            .snoozed-list.open { max-height: 3000px; }
+            .snoozed-row .todo-row { opacity: 0.55; }
+            .snoozed-row .todo-row:hover { opacity: 0.85; }
+            .snooze-wake-label {
+                font-family: var(--font-mono);
+                font-size: var(--text-xs);
+                color: var(--color-secondary);
+                margin-left: auto;
+                white-space: nowrap;
+            }
+
+            /* ── Focus Mode ─────────────────────────── */
+            .focus-mode .todo-list { padding-top: var(--space-sm); }
+
             /* ── Theme Toggle ───────────────────────── */
             .theme-toggle {
                 width: 32px;
@@ -998,17 +1066,35 @@
                 var range = getWeekRange();
                 source = source.filter(function(t) { var d = extractDate(t.heading); return (d && d >= range.start && d <= range.end) || t.heading === 'Quick Tasks'; });
             }
+            // Focus mode: only pinned tasks
+            if (filterMode === 'focus') {
+                source = source.filter(function(t) { return isPinned(t.id); });
+            }
             if (searchQuery) {
                 var q = searchQuery;
                 source = source.filter(function(t) { return t.text.toLowerCase().indexOf(q) !== -1 || t.heading.toLowerCase().indexOf(q) !== -1; });
             }
-            var active = [], completed = [];
+            var active = [], completed = [], snoozed = [];
+            var archiveCutoff = Date.now() - 24 * 3600000;
             for (var i = 0; i < source.length; i++) {
                 var t = source[i];
-                if (!t.checked) active.push(t);
-                else { var d = extractDate(t.heading); if (!d || d === todayStr || t.heading === 'Quick Tasks') completed.push(t); }
+                if (!t.checked) {
+                    if (isSnoozed(t.id)) snoozed.push(t);
+                    else active.push(t);
+                } else {
+                    // Auto-archive: only show completed tasks from today
+                    var d = extractDate(t.heading);
+                    var showCompleted = false;
+                    if (d === todayStr) showCompleted = true;
+                    else if (!d || t.heading === 'Quick Tasks') {
+                        // For dateless tasks, use completion timestamp
+                        var ct = completedAt[t.id];
+                        showCompleted = ct ? ct > archiveCutoff : true; // show if no timestamp (legacy)
+                    }
+                    if (showCompleted) completed.push(t);
+                }
             }
-            return { active: active, completed: completed };
+            return { active: active, completed: completed, snoozed: snoozed };
         }
 
         function groupByHeading(todos) {
@@ -1084,6 +1170,80 @@
             render();
         }
         function isPinned(todoId) { return pinnedIds.indexOf(todoId) !== -1; }
+
+        // Snoozed tasks (persisted in localStorage)
+        var snoozedMap = JSON.parse(localStorage.getItem('todo-snoozed') || '{}'); // { taskId: wakeAtTimestamp }
+        var snoozedExpanded = false;
+        function saveSnoozed() { localStorage.setItem('todo-snoozed', JSON.stringify(snoozedMap)); }
+        function isSnoozed(todoId) { return snoozedMap[todoId] && snoozedMap[todoId] > Date.now(); }
+        function snoozeTodo(todoId, ms) {
+            snoozedMap[todoId] = Date.now() + ms;
+            saveSnoozed();
+            showToast('Snoozed' + (ms < 86400000 ? ' until later today' : ms < 172800000 ? ' until tomorrow' : ' until next week'));
+            render();
+        }
+        function unsnoozeTodo(todoId) {
+            delete snoozedMap[todoId];
+            saveSnoozed();
+            render();
+        }
+        // Clean up expired snoozes on load
+        (function() {
+            var now = Date.now(), changed = false;
+            for (var k in snoozedMap) { if (snoozedMap[k] <= now) { delete snoozedMap[k]; changed = true; } }
+            if (changed) saveSnoozed();
+        })();
+        function showSnoozeMenu(e, todoId) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeSnoozeMenu();
+            var menu = document.createElement('div');
+            menu.className = 'snooze-menu';
+            menu.id = 'snooze-menu';
+            menu.style.left = Math.min(e.clientX, window.innerWidth - 160) + 'px';
+            menu.style.top = Math.min(e.clientY, window.innerHeight - 140) + 'px';
+            var options = [
+                ['Later today', 4 * 3600000],
+                ['Tomorrow morning', calcTomorrowMs()],
+                ['Next week', calcNextWeekMs()]
+            ];
+            for (var i = 0; i < options.length; i++) {
+                var item = document.createElement('div');
+                item.className = 'snooze-menu-item';
+                item.textContent = options[i][0];
+                item.addEventListener('click', (function(ms) { return function(ev) { ev.stopPropagation(); closeSnoozeMenu(); snoozeTodo(todoId, ms); }; })(options[i][1]));
+                menu.appendChild(item);
+            }
+            document.body.appendChild(menu);
+            setTimeout(function() { document.addEventListener('click', closeSnoozeMenu, { once: true }); }, 0);
+        }
+        function closeSnoozeMenu() { var m = document.getElementById('snooze-menu'); if (m) m.remove(); }
+        function calcTomorrowMs() {
+            var t = new Date();
+            t.setDate(t.getDate() + 1);
+            t.setHours(8, 0, 0, 0);
+            return t.getTime() - Date.now();
+        }
+        function calcNextWeekMs() {
+            var t = new Date();
+            var day = t.getDay();
+            var daysUntilMon = day === 0 ? 1 : 8 - day;
+            t.setDate(t.getDate() + daysUntilMon);
+            t.setHours(8, 0, 0, 0);
+            return t.getTime() - Date.now();
+        }
+        function formatWakeTime(ts) {
+            var d = new Date(ts);
+            var now = new Date();
+            var tom = new Date(); tom.setDate(tom.getDate() + 1);
+            if (d.toDateString() === now.toDateString()) return 'today ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+            if (d.toDateString() === tom.toDateString()) return 'tomorrow';
+            return dayNames[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+        }
+
+        // Completion timestamps for auto-archive
+        var completedAt = JSON.parse(localStorage.getItem('todo-completed-at') || '{}'); // { taskId: timestamp }
+        function saveCompletedAt() { localStorage.setItem('todo-completed-at', JSON.stringify(completedAt)); }
 
         // Dynamic favicon dot
         function updateFavicon(active, total) {
@@ -1255,6 +1415,8 @@
                 filterMode = 'today'; sessionStorage.setItem('todo-filter', filterMode); render();
             } else if (e.key === '3') {
                 filterMode = 'week'; sessionStorage.setItem('todo-filter', filterMode); render();
+            } else if (e.key === '4') {
+                filterMode = 'focus'; sessionStorage.setItem('todo-filter', filterMode); render();
             } else if (e.key === 'l' || e.key === 'L') {
                 themeToggle.click();
             }
@@ -1315,7 +1477,10 @@
             undoStack.push({ type: 'toggle', todo: todo, prevChecked: todo.checked });
             if (undoStack.length > 30) undoStack.shift();
             todo.checked = nc;
-            if (nc) completedExpanded = true; // show completed section so task doesn't vanish
+            // Track completion time for auto-archive
+            if (nc) { completedAt[todo.id] = Date.now(); completedExpanded = true; }
+            else delete completedAt[todo.id];
+            saveCompletedAt();
             render();
             fetch('/api/update', {
                 method: 'POST',
@@ -1509,6 +1674,16 @@
                 row.appendChild(reqTag);
             }
 
+            // Snooze button (only on active tasks)
+            if (!todo.checked) {
+                var snz = document.createElement('button');
+                snz.className = 'snooze-btn';
+                snz.textContent = '\u23F0'; // ⏰
+                snz.title = 'Snooze';
+                snz.addEventListener('click', function(e) { e.stopPropagation(); showSnoozeMenu(e, todo.id); });
+                row.appendChild(snz);
+            }
+
             // Star / pin button
             var star = document.createElement('button');
             star.className = 'star-btn' + (isPinned(todo.id) ? ' pinned' : '');
@@ -1570,8 +1745,13 @@
 
         function render() {
             if (!data) return;
+            // Clean up expired snoozes each render
+            var nowTs = Date.now(), snzChanged = false;
+            for (var sk in snoozedMap) { if (snoozedMap[sk] <= nowTs) { delete snoozedMap[sk]; snzChanged = true; } }
+            if (snzChanged) saveSnoozed();
+
             var result = filterTodos();
-            var active = result.active, completed = result.completed;
+            var active = result.active, completed = result.completed, snoozedTasks = result.snoozed;
 
             // Separate pinned tasks to top
             var pinned = [], unpinned = [];
@@ -1586,7 +1766,7 @@
             tb.className = 'toolbar';
             var fg = document.createElement('div');
             fg.className = 'filter-group';
-            var filters = [['All', 'all'], ['Today', 'today'], ['Week', 'week']];
+            var filters = [['All', 'all'], ['Today', 'today'], ['Week', 'week'], ['\u2606 Focus', 'focus']];
             for (var fi = 0; fi < filters.length; fi++) {
                 var btn = document.createElement('button');
                 btn.className = 'filter-btn' + (filterMode === filters[fi][1] ? ' active' : '');
@@ -1670,13 +1850,13 @@
             // List
             var list = document.createElement('div');
             list.className = 'todo-list' + (flatMode ? ' flat-mode' : '');
-            if (active.length === 0 && completed.length === 0) {
+            if (active.length === 0 && completed.length === 0 && snoozedTasks.length === 0) {
                 var empty = document.createElement('div');
                 empty.className = 'state-msg';
                 var eh = document.createElement('h3');
-                eh.textContent = searchQuery ? 'No matches' : filterMode === 'today' ? 'No tasks for today' : filterMode === 'week' ? 'No tasks this week' : 'All clear';
+                eh.textContent = searchQuery ? 'No matches' : filterMode === 'focus' ? 'No pinned tasks' : filterMode === 'today' ? 'No tasks for today' : filterMode === 'week' ? 'No tasks this week' : 'All clear';
                 var ep = document.createElement('p');
-                ep.textContent = searchQuery ? 'Try a different search.' : 'Nothing to do right now.';
+                ep.textContent = searchQuery ? 'Try a different search.' : filterMode === 'focus' ? 'Star a task to pin it here.' : 'Nothing to do right now.';
                 empty.appendChild(eh);
                 empty.appendChild(ep);
                 list.appendChild(empty);
@@ -1721,7 +1901,61 @@
                     for (var ti = 0; ti < g.items.length; ti++) list.appendChild(makeRow(g.items[ti]));
                 }
                 } // end grouped mode
-                if (completed.length > 0) {
+                // Snoozed section
+                if (snoozedTasks.length > 0 && filterMode !== 'focus') {
+                    var snzDiv = document.createElement('div');
+                    snzDiv.className = 'completed-divider';
+                    list.appendChild(snzDiv);
+                    var snzToggle = document.createElement('div');
+                    snzToggle.className = 'snoozed-toggle';
+                    snzToggle.addEventListener('click', function() { snoozedExpanded = !snoozedExpanded; render(); });
+                    var snzArrow = document.createElement('span');
+                    snzArrow.className = 'toggle-arrow' + (snoozedExpanded ? ' open' : '');
+                    snzArrow.textContent = '\u25b8';
+                    snzToggle.appendChild(snzArrow);
+                    var snzLabel = document.createElement('span');
+                    snzLabel.className = 'toggle-label';
+                    snzLabel.textContent = 'Snoozed';
+                    snzToggle.appendChild(snzLabel);
+                    var snzBadge = document.createElement('span');
+                    snzBadge.className = 'toggle-badge';
+                    snzBadge.style.background = 'oklch(0.72 0.18 320 / 0.12)';
+                    snzBadge.style.color = 'var(--color-secondary)';
+                    snzBadge.textContent = snoozedTasks.length;
+                    snzToggle.appendChild(snzBadge);
+                    list.appendChild(snzToggle);
+                    var snzList = document.createElement('div');
+                    snzList.className = 'snoozed-list' + (snoozedExpanded ? ' open' : '');
+                    for (var si3 = 0; si3 < snoozedTasks.length; si3++) {
+                        var snzWrap = document.createElement('div');
+                        snzWrap.className = 'snoozed-row';
+                        var snzRow = makeRow(snoozedTasks[si3]);
+                        snzWrap.appendChild(snzRow);
+                        // Add wake time label + unsnooze button
+                        var wakeLabel = document.createElement('div');
+                        wakeLabel.style.display = 'flex';
+                        wakeLabel.style.justifyContent = 'flex-end';
+                        wakeLabel.style.padding = '0 16px 4px';
+                        wakeLabel.style.gap = '8px';
+                        wakeLabel.style.alignItems = 'center';
+                        var wt = document.createElement('span');
+                        wt.className = 'snooze-wake-label';
+                        wt.textContent = '\u23F0 ' + formatWakeTime(snoozedMap[snoozedTasks[si3].id]);
+                        wakeLabel.appendChild(wt);
+                        var unsnz = document.createElement('button');
+                        unsnz.className = 'snooze-btn';
+                        unsnz.style.opacity = '1';
+                        unsnz.style.fontSize = 'var(--text-xs)';
+                        unsnz.style.color = 'var(--color-secondary)';
+                        unsnz.textContent = 'Wake';
+                        unsnz.addEventListener('click', (function(tid) { return function(ev) { ev.stopPropagation(); unsnoozeTodo(tid); }; })(snoozedTasks[si3].id));
+                        wakeLabel.appendChild(unsnz);
+                        snzWrap.appendChild(wakeLabel);
+                        snzList.appendChild(snzWrap);
+                    }
+                    list.appendChild(snzList);
+                }
+                if (completed.length > 0 && filterMode !== 'focus') {
                     var div = document.createElement('div');
                     div.className = 'completed-divider';
                     list.appendChild(div);
@@ -1754,11 +1988,11 @@
             footer.className = 'footer';
             var fc = document.createElement('span');
             fc.className = 'footer-count';
-            fc.textContent = active.length + ' active \u00b7 ' + completed.length + ' done';
+            fc.textContent = active.length + ' active' + (snoozedTasks.length ? ' \u00b7 ' + snoozedTasks.length + ' snoozed' : '') + ' \u00b7 ' + completed.length + ' done';
             footer.appendChild(fc);
             var fn = document.createElement('span');
             fn.className = 'footer-note';
-            fn.textContent = '\u2318Z undo \u00b7 N add \u00b7 / search \u00b7 R refresh \u00b7 1-3 filter \u00b7 L theme';
+            fn.textContent = '\u2318Z undo \u00b7 N add \u00b7 / search \u00b7 R refresh \u00b7 1-4 filter \u00b7 L theme';
             footer.appendChild(fn);
             frag.appendChild(footer);
 
@@ -1777,6 +2011,17 @@
         }
 
         load();
+
+        // PWA shortcut: auto-focus add input when opened via ?action=add
+        if (new URLSearchParams(window.location.search).get('action') === 'add') {
+            var checkAdd = setInterval(function() {
+                var ai2 = document.getElementById('add-task-input');
+                if (ai2) { ai2.focus(); clearInterval(checkAdd); }
+            }, 100);
+            setTimeout(function() { clearInterval(checkAdd); }, 3000);
+            // Clean URL without reload
+            history.replaceState(null, '', '/');
+        }
 
         // Register service worker for offline support
         if ('serviceWorker' in navigator) {
