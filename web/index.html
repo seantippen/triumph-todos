@@ -773,6 +773,7 @@
             }
             .todo-row:hover .delete-btn { opacity: 1; }
             .delete-btn:hover { color: var(--color-danger); }
+            @media (hover: none) { .delete-btn { display: none; } }
 
             /* ── Snooze Button ──────────────────────── */
             .snooze-btn {
@@ -1442,8 +1443,72 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: action.todo.id, checked: action.prevChecked })
                 });
+            } else if (action.type === 'delete') {
+                // Re-add the deleted todo locally
+                if (data && data.todos) {
+                    var insertIdx = Math.min(action.index, data.todos.length);
+                    data.todos.splice(insertIdx, 0, action.todo);
+                }
+                render();
+                showToast('Restored: ' + (action.todo.text.length > 30 ? action.todo.text.slice(0, 30) + '\u2026' : action.todo.text));
+                // Re-create in Notion via add endpoint (old block was archived)
+                fetch('/api/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: action.todo.text })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    if (d.todo && data && data.todos) {
+                        // Replace the placeholder with the real Notion-backed todo
+                        var idx = data.todos.indexOf(action.todo);
+                        if (idx !== -1) data.todos[idx] = d.todo;
+                        render();
+                    }
+                    needsFreshFetch = true;
+                    scheduleRefresh();
+                }).catch(function() { showToast('Restored locally but sync failed'); });
             }
         }
+
+        // Shake-to-undo (mobile)
+        (function() {
+            var shakeThreshold = 15;
+            var shakeCount = 0;
+            var lastShake = 0;
+            var shakeCooldown = false;
+
+            function onMotion(e) {
+                var acc = e.accelerationIncludingGravity;
+                if (!acc) return;
+                var force = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z) - 9.8;
+                if (force > shakeThreshold) {
+                    var now = Date.now();
+                    if (now - lastShake > 300) shakeCount = 0;
+                    shakeCount++;
+                    lastShake = now;
+                    if (shakeCount >= 3 && !shakeCooldown) {
+                        shakeCooldown = true;
+                        undoLast();
+                        setTimeout(function() { shakeCooldown = false; }, 1500);
+                    }
+                }
+            }
+
+            function enableShake() {
+                window.addEventListener('devicemotion', onMotion, { passive: true });
+            }
+
+            // iOS 13+ requires permission
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                document.addEventListener('touchstart', function iosMotionPermission() {
+                    DeviceMotionEvent.requestPermission().then(function(state) {
+                        if (state === 'granted') enableShake();
+                    }).catch(function() {});
+                    document.removeEventListener('touchstart', iosMotionPermission);
+                }, { once: true });
+            } else if (typeof DeviceMotionEvent !== 'undefined') {
+                enableShake();
+            }
+        })();
 
         function addTask(text) {
             if (addingTask || !text.trim()) return;
@@ -1504,6 +1569,8 @@
             if (!data || !data.todos) return;
             var idx = data.todos.indexOf(todo);
             if (idx !== -1) data.todos.splice(idx, 1);
+            undoStack.push({ type: 'delete', todo: { id: todo.id, text: todo.text, checked: todo.checked, heading: todo.heading }, index: idx });
+            if (undoStack.length > 30) undoStack.shift();
             render();
             fetch('/api/delete', {
                 method: 'POST',
