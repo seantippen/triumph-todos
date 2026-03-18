@@ -5,13 +5,13 @@ const QUICK_TASKS_HEADING = 'Quick Tasks';
 const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
 const CACHE_TTL = 120; // seconds
 
-// Track subrequests to stay under Cloudflare's 50 limit
-let subRequests = 0;
+// Track subrequests to stay under Cloudflare's 50 limit (shared counter object for concurrency safety)
+const subCounter = { count: 0 };
 const MAX_SUB = 45;
 
 async function fetchChildren(token, blockId, cursor) {
-    if (subRequests >= MAX_SUB) return { results: [], next: null };
-    subRequests++;
+    if (subCounter.count >= MAX_SUB) return { results: [], next: null };
+    subCounter.count++;
     const params = new URLSearchParams({ page_size: '100' });
     if (cursor) params.set('start_cursor', cursor);
     const r = await fetch(`${BASE_URL}/blocks/${blockId}/children?${params}`, {
@@ -51,11 +51,11 @@ function isRecent(heading, cutoff) {
 }
 
 async function walkChildren(token, blockId, heading, depth) {
-    if (depth > 2 || subRequests >= MAX_SUB) return [];
+    if (depth > 2 || subCounter.count >= MAX_SUB) return [];
     const todos = [];
     const children = await allChildren(token, blockId);
     for (const b of children) {
-        if (subRequests >= MAX_SUB) break;
+        if (subCounter.count >= MAX_SUB) break;
         const t = b.type;
         if (t === 'to_do') {
             todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading });
@@ -72,7 +72,7 @@ async function walkChildren(token, blockId, heading, depth) {
 }
 
 async function collectTodos(token) {
-    subRequests = 0;
+    subCounter.count = 0;
     const cutoff = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
     const todos = [];
     let heading = 'Ungrouped';
@@ -82,7 +82,7 @@ async function collectTodos(token) {
         const { results, next } = await fetchChildren(token, PAGE_ID, cursor);
         cursor = next;
         for (const b of results) {
-            if (subRequests >= MAX_SUB) return todos;
+            if (subCounter.count >= MAX_SUB) return todos;
             const t = b.type;
             if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
                 heading = plainText(b[t]?.rich_text);
@@ -216,6 +216,21 @@ export default {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ to_do: { rich_text: [{ type: 'text', text: { content: text.trim() } }] } }),
+            });
+            if (!r.ok) return jsonResp({ error: await r.text() }, r.status);
+            const cache = caches.default;
+            ctx.waitUntil(cache.delete(new Request(CACHE_KEY)));
+            return jsonResp({ ok: true });
+        }
+
+        if (url.pathname === '/api/delete' && request.method === 'POST') {
+            const token = env.NOTION_TOKEN;
+            if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
+            const { id } = await request.json();
+            if (!id) return jsonResp({ error: 'id required' }, 400);
+            const r = await fetch(`${BASE_URL}/blocks/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION },
             });
             if (!r.ok) return jsonResp({ error: await r.text() }, r.status);
             const cache = caches.default;

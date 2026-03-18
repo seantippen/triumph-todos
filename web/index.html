@@ -118,7 +118,7 @@
                 padding: 0 var(--space-md);
             }
             .accent-bar {
-                height: 2px;
+                height: 3px;
                 background: linear-gradient(90deg, var(--color-accent), var(--color-secondary));
             }
             .header-inner {
@@ -168,39 +168,6 @@
             .refresh-btn:active { transform: scale(0.92); }
             .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
-
-            /* ── Progress ────────────────────────────── */
-            .progress-section { padding: var(--space-sm) 0 0; }
-            .progress-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
-                margin-bottom: 6px;
-            }
-            .progress-label {
-                font-family: var(--font-mono);
-                font-size: var(--text-xs);
-                color: var(--color-text-secondary);
-            }
-            .progress-pct {
-                font-family: var(--font-mono);
-                font-size: var(--text-xs);
-                font-weight: 600;
-            }
-            .progress-track {
-                height: 5px;
-                background: var(--color-surface-hover);
-                border-radius: 3px;
-                overflow: hidden;
-            }
-            .progress-fill {
-                height: 100%;
-                border-radius: 3px;
-                transition: width 0.5s var(--ease-out), background 0.3s;
-            }
-            .progress-fill.low { background: var(--color-text-muted); }
-            .progress-fill.mid { background: var(--color-secondary); }
-            .progress-fill.high { background: var(--color-accent); }
 
             /* ── Toolbar ─────────────────────────────── */
             .toolbar {
@@ -433,7 +400,7 @@
                 border-radius: 2px;
                 flex-shrink: 0;
             }
-            .todo-pip.pip-blue { background: var(--color-secondary); }
+            .todo-pip.pip-blue { background: oklch(0.62 0.28 264); }
             .todo-pip.pip-purple { background: oklch(0.65 0.22 270); }
             .todo-pip.pip-red { background: var(--color-danger); }
             .todo-pip.pip-green { background: var(--color-accent); }
@@ -461,7 +428,7 @@
             .pip-menu-dot:hover { transform: scale(1.2); }
             .pip-menu-dot.selected { border-color: var(--color-text); }
             .pip-menu-dot.dot-green { background: var(--color-accent); }
-            .pip-menu-dot.dot-blue { background: var(--color-secondary); }
+            .pip-menu-dot.dot-blue { background: oklch(0.62 0.28 264); }
             .pip-menu-dot.dot-purple { background: oklch(0.65 0.22 270); }
             .pip-menu-dot.dot-red { background: var(--color-danger); }
             .todo-check {
@@ -547,8 +514,14 @@
                 padding: 2px 8px;
                 border-radius: 999px;
             }
-            .completed-list { display: none; }
-            .completed-list.open { display: block; }
+            .completed-list {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.35s var(--ease-out);
+            }
+            .completed-list.open {
+                max-height: 3000px;
+            }
 
             /* ── Skeleton Loading ────────────────────── */
             .skeleton-group { padding-top: var(--space-md); }
@@ -660,10 +633,12 @@
                 color: var(--color-text-disabled);
                 padding: 0 2px;
                 line-height: 1;
-                transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring);
+                opacity: 0;
+                transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring), opacity var(--duration-fast);
             }
-            .star-btn:hover { color: var(--color-warning); transform: scale(1.15); }
-            .star-btn.pinned { color: var(--color-warning); }
+            .todo-row:hover .star-btn, .star-btn:focus { opacity: 1; }
+            .star-btn:hover { color: var(--color-warning); transform: scale(1.15); opacity: 1; }
+            .star-btn.pinned { color: var(--color-warning); opacity: 1; }
 
             /* ── Inline Edit ────────────────────────── */
             .todo-text-edit {
@@ -678,6 +653,52 @@
                 flex: 1;
                 outline: none;
             }
+
+            /* ── Toast ──────────────────────────────── */
+            .toast {
+                position: fixed;
+                bottom: 24px;
+                left: 50%;
+                transform: translateX(-50%) translateY(20px);
+                background: var(--color-surface-raised);
+                color: var(--color-text);
+                border: 1px solid var(--color-border-emphasis);
+                border-radius: 10px;
+                padding: 10px 18px;
+                font-size: var(--text-sm);
+                font-family: var(--font-sans);
+                z-index: 200;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s, transform 0.2s var(--ease-spring);
+                box-shadow: var(--shadow-md);
+            }
+            .toast.visible {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+                pointer-events: auto;
+            }
+
+            /* ── Edit hint ─────────────────────────── */
+            .todo-row:not(.completed):hover .todo-text {
+                cursor: text;
+            }
+
+            /* ── Delete button ─────────────────────── */
+            .delete-btn {
+                flex-shrink: 0;
+                background: none;
+                border: none;
+                font-size: 14px;
+                cursor: pointer;
+                color: var(--color-text-disabled);
+                padding: 0 2px;
+                line-height: 1;
+                opacity: 0;
+                transition: color var(--duration-fast), opacity var(--duration-fast);
+            }
+            .todo-row:hover .delete-btn { opacity: 1; }
+            .delete-btn:hover { color: var(--color-danger); }
 
             @media (prefers-reduced-motion: reduce) {
                 *, *::before, *::after {
@@ -706,9 +727,6 @@
             </div>
         </header>
         <div id="app">
-            <div class="progress-section">
-                <div class="progress-track"><div class="progress-fill low" style="width:0"></div></div>
-            </div>
             <div class="skeleton-group">
                 <div class="skeleton-heading"></div>
                 <div class="skeleton-row"></div>
@@ -727,11 +745,12 @@
     (function() {
         var app = document.getElementById('app');
         var data = null;
-        var filterMode = 'all';
+        var filterMode = sessionStorage.getItem('todo-filter') || 'all';
         var completedExpanded = false;
-        var searchQuery = '';
+        var searchQuery = sessionStorage.getItem('todo-search') || '';
         var refreshTimer = null;
         var refreshBtn = document.getElementById('refresh-btn');
+        var searchDebounceTimer = null;
 
         // Show today's date in header
         var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -760,16 +779,22 @@
                     var el = document.getElementById('sync-status');
                     el.textContent = 'Error';
                     el.className = 'sync-status error';
-                    app.textContent = '';
-                    var msg = document.createElement('div');
-                    msg.className = 'state-msg';
-                    var h = document.createElement('h3');
-                    h.textContent = 'Failed to load';
-                    var p = document.createElement('p');
-                    p.textContent = e.message;
-                    msg.appendChild(h);
-                    msg.appendChild(p);
-                    app.appendChild(msg);
+                    if (data) {
+                        // Keep existing data visible, show toast
+                        showToast('Sync failed — showing cached data');
+                    } else {
+                        // First load failed, show error state
+                        app.textContent = '';
+                        var msg = document.createElement('div');
+                        msg.className = 'state-msg';
+                        var h = document.createElement('h3');
+                        h.textContent = 'Failed to load';
+                        var p = document.createElement('p');
+                        p.textContent = e.message;
+                        msg.appendChild(h);
+                        msg.appendChild(p);
+                        app.appendChild(msg);
+                    }
                     scheduleRefresh();
                 });
         }
@@ -810,6 +835,42 @@
             return m ? m[1] : null;
         }
 
+        // Toast notifications
+        var toastEl = null;
+        var toastTimer = null;
+        function showToast(msg) {
+            if (toastEl) toastEl.remove();
+            toastEl = document.createElement('div');
+            toastEl.className = 'toast';
+            toastEl.textContent = msg;
+            document.body.appendChild(toastEl);
+            requestAnimationFrame(function() { toastEl.classList.add('visible'); });
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(function() {
+                if (toastEl) { toastEl.classList.remove('visible'); setTimeout(function() { if (toastEl) { toastEl.remove(); toastEl = null; } }, 200); }
+            }, 3000);
+        }
+
+        // Human-readable heading display
+        var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        function humanHeading(heading) {
+            var m = heading.match(/^(\d{4}-\d{2}-\d{2})\s*(.*)/);
+            if (!m) return heading;
+            var iso = m[1], rest = m[2];
+            var todayStr = getTodayStr();
+            var yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            var yesterdayStr = fmtDate(yesterdayDate);
+            var label;
+            if (iso === todayStr) label = 'Today';
+            else if (iso === yesterdayStr) label = 'Yesterday';
+            else {
+                var parts = iso.split('-');
+                var d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+                label = dayNames[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+            }
+            return rest ? label + ' · ' + rest : label;
+        }
+
         function filterTodos() {
             var todayStr = getTodayStr();
             var source = data.todos;
@@ -829,12 +890,6 @@
                 else { var d = extractDate(t.heading); if (!d || d === todayStr || t.heading === 'Quick Tasks') completed.push(t); }
             }
             return { active: active, completed: completed };
-        }
-
-        function todayProgress() {
-            var todayStr = getTodayStr();
-            var tt = data.todos.filter(function(t) { return t.heading.indexOf(todayStr) !== -1; });
-            return { done: tt.filter(function(t) { return t.checked; }).length, total: tt.length };
         }
 
         function groupByHeading(todos) {
@@ -954,8 +1009,8 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: todo.id, text: newText })
-            }).then(function(r) { if (!r.ok) { todo.text = oldText; render(); } })
-              .catch(function() { todo.text = oldText; render(); });
+            }).then(function(r) { if (!r.ok) { todo.text = oldText; render(); showToast('Couldn\u2019t save edit'); } else { scheduleRefresh(); } })
+              .catch(function() { todo.text = oldText; render(); showToast('Couldn\u2019t save edit'); });
         }
 
         // Pip colors (persisted in localStorage)
@@ -969,8 +1024,9 @@
             var menu = document.createElement('div');
             menu.className = 'pip-menu';
             menu.id = 'pip-menu';
-            menu.style.left = e.clientX + 'px';
-            menu.style.top = e.clientY + 'px';
+            var menuW = 120, menuH = 32; // approximate
+            menu.style.left = Math.min(e.clientX, window.innerWidth - menuW - 8) + 'px';
+            menu.style.top = Math.min(e.clientY, window.innerHeight - menuH - 8) + 'px';
             var colors = ['green', 'blue', 'purple', 'red'];
             var current = pipColors[todoId] || 'green';
             for (var i = 0; i < colors.length; i++) {
@@ -1043,35 +1099,51 @@
             .then(function(d) {
                 addingTask = false;
                 if (d.error) throw new Error(d.error);
-                // Replace optimistic entry with real one
                 if (d.todo && data && data.todos) {
                     var idx = data.todos.indexOf(optimistic);
                     if (idx !== -1) data.todos[idx] = d.todo;
                 }
                 render();
+                scheduleRefresh();
             })
             .catch(function(e) {
                 addingTask = false;
-                // Remove optimistic entry on failure
                 if (data && data.todos) {
                     var idx = data.todos.indexOf(optimistic);
                     if (idx !== -1) data.todos.splice(idx, 1);
                 }
                 render();
+                showToast('Couldn\u2019t add task');
             });
         }
 
         function toggleTodo(todo) {
             var nc = !todo.checked;
             undoStack.push({ type: 'toggle', todo: todo, prevChecked: todo.checked });
+            if (undoStack.length > 30) undoStack.shift();
             todo.checked = nc;
             render();
             fetch('/api/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: todo.id, checked: nc })
-            }).then(function(r) { if (!r.ok) { todo.checked = !nc; render(); } })
-              .catch(function() { todo.checked = !nc; render(); });
+            }).then(function(r) { if (!r.ok) { todo.checked = !nc; render(); showToast('Couldn\u2019t save — reverted'); } else { scheduleRefresh(); } })
+              .catch(function() { todo.checked = !nc; render(); showToast('Couldn\u2019t save — reverted'); });
+        }
+
+        function deleteTodo(todo) {
+            if (!data || !data.todos) return;
+            var idx = data.todos.indexOf(todo);
+            if (idx !== -1) data.todos.splice(idx, 1);
+            render();
+            fetch('/api/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: todo.id })
+            }).then(function(r) {
+                if (!r.ok) { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); }
+                else { scheduleRefresh(); }
+            }).catch(function() { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); });
         }
 
         function makeDividerRow(item) {
@@ -1125,7 +1197,7 @@
             row.setAttribute('draggable', 'true');
             row.setAttribute('data-id', todo.id);
             row.addEventListener('click', function(e) {
-                if (e.target.classList.contains('drag-handle') || e.target.classList.contains('star-btn') || e.target.classList.contains('todo-text-edit')) return;
+                if (e.target.classList.contains('drag-handle') || e.target.classList.contains('star-btn') || e.target.classList.contains('delete-btn') || e.target.classList.contains('todo-text-edit')) return;
                 toggleTodo(todo);
             });
 
@@ -1186,7 +1258,13 @@
             // Drag events
             row.addEventListener('dragstart', function(e) {
                 dragId = todo.id;
-                if (!flatMode) { flatMode = true; render(); return; }
+                if (!flatMode) {
+                    e.preventDefault();
+                    flatMode = true;
+                    showToast('Switched to flat list — drag again to reorder');
+                    render();
+                    return;
+                }
                 row.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
             });
@@ -1214,14 +1292,23 @@
             var txt = document.createElement('span');
             txt.className = 'todo-text';
             txt.textContent = todo.text;
+            if (!todo.checked) txt.title = 'Double-click to edit';
             row.appendChild(txt);
 
             // Star / pin button
             var star = document.createElement('button');
             star.className = 'star-btn' + (isPinned(todo.id) ? ' pinned' : '');
-            star.textContent = isPinned(todo.id) ? '\u2605' : '\u2606'; // ★ or ☆
+            star.textContent = isPinned(todo.id) ? '\u2605' : '\u2606';
+            star.title = isPinned(todo.id) ? 'Unpin' : 'Pin to top';
             star.addEventListener('click', function(e) { e.stopPropagation(); togglePin(todo.id); });
             row.appendChild(star);
+
+            var del = document.createElement('button');
+            del.className = 'delete-btn';
+            del.textContent = '\u00d7';
+            del.title = 'Delete';
+            del.addEventListener('click', function(e) { e.stopPropagation(); deleteTodo(todo); });
+            row.appendChild(del);
 
             wrapper.appendChild(row);
             return wrapper;
@@ -1278,37 +1365,7 @@
                 if (isPinned(active[pi].id)) pinned.push(active[pi]);
                 else unpinned.push(active[pi]);
             }
-            var progress = todayProgress();
-            var pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-            var pctW = progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
-            var fillClass = pct >= 75 ? 'high' : pct >= 40 ? 'mid' : 'low';
             var frag = document.createDocumentFragment();
-
-            // Progress
-            var ps = document.createElement('div');
-            ps.className = 'progress-section';
-            var ph = document.createElement('div');
-            ph.className = 'progress-header';
-            var pl = document.createElement('span');
-            pl.className = 'progress-label';
-            pl.textContent = progress.total > 0 ? 'Today: ' + progress.done + '/' + progress.total : 'Today: no tasks';
-            ph.appendChild(pl);
-            if (progress.total > 0) {
-                var pp = document.createElement('span');
-                pp.className = 'progress-pct';
-                pp.style.color = pct >= 75 ? 'var(--color-accent)' : pct >= 40 ? 'var(--color-secondary)' : 'var(--color-text-muted)';
-                pp.textContent = pct + '%';
-                ph.appendChild(pp);
-            }
-            ps.appendChild(ph);
-            var track = document.createElement('div');
-            track.className = 'progress-track';
-            var fill = document.createElement('div');
-            fill.className = 'progress-fill ' + fillClass;
-            fill.style.width = pctW + '%';
-            track.appendChild(fill);
-            ps.appendChild(track);
-            frag.appendChild(ps);
 
             // Toolbar
             var tb = document.createElement('div');
@@ -1321,20 +1378,34 @@
                 btn.className = 'filter-btn' + (filterMode === filters[fi][1] ? ' active' : '');
                 btn.textContent = filters[fi][0];
                 btn.setAttribute('data-mode', filters[fi][1]);
-                btn.addEventListener('click', function() { filterMode = this.getAttribute('data-mode'); render(); });
+                btn.addEventListener('click', function() {
+                    filterMode = this.getAttribute('data-mode');
+                    sessionStorage.setItem('todo-filter', filterMode);
+                    render();
+                });
                 fg.appendChild(btn);
             }
-            // Flat list toggle (before filters)
+            // Flat list toggle
             var flatBtn = document.createElement('button');
             flatBtn.className = 'flat-toggle' + (flatMode ? ' active' : '');
             flatBtn.title = flatMode ? 'Show grouped' : 'Show flat list';
             flatBtn.textContent = '\u2261';
-            flatBtn.addEventListener('click', function() { flatMode = !flatMode; render(); });
+            flatBtn.addEventListener('click', function() {
+                flatMode = !flatMode;
+                if (flatMode) {
+                    // Initialize order from current active list if needed
+                    var result2 = filterTodos();
+                    var ids = result2.active.map(function(t) { return t.id; });
+                    // Only rebuild if customOrder is empty or missing items
+                    if (customOrder.length === 0) { customOrder = ids; saveOrder(); }
+                }
+                render();
+            });
             tb.appendChild(flatBtn);
 
             tb.appendChild(fg);
 
-            // Inline search
+            // Inline search (debounced)
             var sb = document.createElement('div');
             sb.className = 'search-inline';
             var si = document.createElement('span');
@@ -1346,7 +1417,15 @@
             input.className = 'search-input';
             input.placeholder = 'Search...';
             input.value = searchQuery;
-            input.addEventListener('input', function() { searchQuery = this.value.toLowerCase(); render(); });
+            input.addEventListener('input', function() {
+                var val = this.value.toLowerCase();
+                if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(function() {
+                    searchQuery = val;
+                    sessionStorage.setItem('todo-search', searchQuery);
+                    render();
+                }, 150);
+            });
             sb.appendChild(input);
             tb.appendChild(sb);
 
@@ -1390,16 +1469,15 @@
             } else {
                 if (flatMode) {
                     var flatAll = pinned.concat(applyCustomOrder(unpinned));
-                    rebuildOrder(flatAll);
+                    // Don't rebuild order here — only on actual drops
                     for (var ai = 0; ai < flatAll.length; ai++) list.appendChild(makeRow(flatAll[ai]));
-                    // Add divider button
                     var addDiv = document.createElement('button');
                     addDiv.className = 'add-divider-btn';
                     addDiv.textContent = '+ Add divider';
                     addDiv.addEventListener('click', addDivider);
                     list.appendChild(addDiv);
                 } else {
-                // Show pinned tasks first as their own section
+                // Show pinned tasks first
                 if (pinned.length > 0) {
                     var pgh = document.createElement('div');
                     pgh.className = 'group-heading';
@@ -1419,7 +1497,7 @@
                     var gh = document.createElement('div');
                     gh.className = 'group-heading';
                     var ghT = document.createElement('h3');
-                    ghT.textContent = g.heading;
+                    ghT.textContent = humanHeading(g.heading);
                     gh.appendChild(ghT);
                     var ghB = document.createElement('span');
                     ghB.className = 'badge';
@@ -1442,7 +1520,7 @@
                     toggle.appendChild(arrow);
                     var tl = document.createElement('span');
                     tl.className = 'toggle-label';
-                    tl.textContent = 'Completed today';
+                    tl.textContent = 'Completed';
                     toggle.appendChild(tl);
                     var tbd = document.createElement('span');
                     tbd.className = 'toggle-badge';
@@ -1466,7 +1544,7 @@
             footer.appendChild(fc);
             var fn = document.createElement('span');
             fn.className = 'footer-note';
-            fn.textContent = 'Auto-refreshes every 2 min';
+            fn.textContent = '\u2318Z to undo \u00b7 Double-click to edit';
             footer.appendChild(fn);
             frag.appendChild(footer);
 
@@ -1486,10 +1564,6 @@
 
         load();
 
-        // Service worker registration for PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(function() {});
-        }
     })();
     </script>
 </body>
