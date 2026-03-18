@@ -240,6 +240,23 @@
                 color: var(--color-text-muted);
                 white-space: nowrap;
             }
+            .flat-toggle {
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--color-surface);
+                border: 1px solid var(--color-border);
+                border-radius: 6px;
+                color: var(--color-text-muted);
+                cursor: pointer;
+                font-size: 12px;
+                transition: all var(--duration-fast) var(--ease-out);
+                flex-shrink: 0;
+            }
+            .flat-toggle:hover { color: var(--color-text); border-color: var(--color-border-emphasis); }
+            .flat-toggle.active { color: var(--color-accent); border-color: var(--color-accent); background: var(--accent-subtle); }
 
             /* ── Search (inline in toolbar) ─────────── */
             .search-inline {
@@ -690,6 +707,29 @@
         }
 
         var addingTask = false;
+        var undoStack = []; // { type: 'toggle'|'add', todo, prevChecked }
+        var flatMode = false;
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undoLast();
+            }
+        });
+
+        function undoLast() {
+            if (undoStack.length === 0) return;
+            var action = undoStack.pop();
+            if (action.type === 'toggle') {
+                action.todo.checked = action.prevChecked;
+                render();
+                fetch('/api/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: action.todo.id, checked: action.prevChecked })
+                });
+            }
+        }
 
         function addTask(text) {
             if (addingTask || !text.trim()) return;
@@ -729,6 +769,7 @@
 
         function toggleTodo(todo) {
             var nc = !todo.checked;
+            undoStack.push({ type: 'toggle', todo: todo, prevChecked: todo.checked });
             todo.checked = nc;
             render();
             fetch('/api/update', {
@@ -826,6 +867,14 @@
             sb.appendChild(input);
             tb.appendChild(sb);
 
+            // Flat list toggle
+            var flatBtn = document.createElement('button');
+            flatBtn.className = 'flat-toggle' + (flatMode ? ' active' : '');
+            flatBtn.title = flatMode ? 'Show grouped' : 'Show flat list';
+            flatBtn.textContent = '\u2261'; // ≡ hamburger icon
+            flatBtn.addEventListener('click', function() { flatMode = !flatMode; render(); });
+            tb.appendChild(flatBtn);
+
             frag.appendChild(tb);
 
             // Add task
@@ -864,6 +913,9 @@
                 empty.appendChild(ep);
                 list.appendChild(empty);
             } else {
+                if (flatMode) {
+                    for (var ai = 0; ai < active.length; ai++) list.appendChild(makeRow(active[ai]));
+                } else {
                 var groups = groupByHeading(active);
                 for (var gi = 0; gi < groups.length; gi++) {
                     var g = groups[gi];
@@ -879,6 +931,7 @@
                     list.appendChild(gh);
                     for (var ti = 0; ti < g.items.length; ti++) list.appendChild(makeRow(g.items[ti]));
                 }
+                } // end grouped mode
                 if (completed.length > 0) {
                     var div = document.createElement('div');
                     div.className = 'completed-divider';
