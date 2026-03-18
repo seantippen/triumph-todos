@@ -207,6 +207,22 @@ export default {
             return jsonResp({ ok: true });
         }
 
+        if (url.pathname === '/api/edit' && request.method === 'POST') {
+            const token = env.NOTION_TOKEN;
+            if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
+            const { id, text } = await request.json();
+            if (!id || typeof text !== 'string' || !text.trim()) return jsonResp({ error: 'id and text required' }, 400);
+            const r = await fetch(`${BASE_URL}/blocks/${id}`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_do: { rich_text: [{ type: 'text', text: { content: text.trim() } }] } }),
+            });
+            if (!r.ok) return jsonResp({ error: await r.text() }, r.status);
+            const cache = caches.default;
+            ctx.waitUntil(cache.delete(new Request(CACHE_KEY)));
+            return jsonResp({ ok: true });
+        }
+
         return env.ASSETS.fetch(request);
     }
 };
