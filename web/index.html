@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
     <meta name="theme-color" content="#1a1f2e" id="meta-theme-color">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <title>To-Do</title>
     <link rel="stylesheet" href="https://seantippen.github.io/style-guide/tokens.css">
     <script>
         // Restore theme before paint to prevent flash
         if (localStorage.getItem('todo-theme') === 'light') {
             document.documentElement.classList.add('light');
+            document.querySelector('meta[name="color-scheme"]').content = 'light';
             document.addEventListener('DOMContentLoaded', function() {
                 var mc = document.getElementById('meta-theme-color');
                 if (mc) mc.content = '#f2f2f4';
@@ -30,25 +35,87 @@
 
         @layer tokens {
             :root {
-                /* Project-specific overrides (differ from tokens.css) */
-                --color-secondary: oklch(0.72 0.18 320);
-                --accent-muted: oklch(0.75 0.17 178 / 0.15);
-                --accent-subtle: oklch(0.75 0.17 178 / 0.08);
-                --color-heading: oklch(0.78 0.15 178);
-                --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-                --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', monospace;
+                color-scheme: dark;
+                --color-accent: oklch(0.75 0.17 178);
+                --color-secondary: oklch(0.74 0.18 30);
+                --color-bg: oklch(0.14 0.025 250);
+                --color-surface: oklch(0.18 0.025 250);
+                --color-surface-hover: oklch(0.22 0.025 250);
+                --color-surface-raised: oklch(0.26 0.025 250);
+                --color-surface-overlay: oklch(0.30 0.025 250);
+                --color-text: oklch(0.93 0.01 250);
+                --color-text-secondary: oklch(0.75 0.01 250);
+                --color-text-muted: oklch(0.55 0.015 250);
+                --color-text-disabled: oklch(0.40 0.01 250);
+                --color-border: oklch(1 0 0 / 0.08);
+                --color-border-emphasis: oklch(1 0 0 / 0.15);
+                --color-border-strong: oklch(1 0 0 / 0.25);
+                --accent-muted: oklch(0.87 0.17 178 / 0.15);
+                --accent-subtle: oklch(0.87 0.17 178 / 0.08);
+                --color-success: oklch(0.72 0.17 145);
+                --color-warning: oklch(0.80 0.16 85);
+                --color-danger: oklch(0.70 0.19 25);
+                --color-info: oklch(0.72 0.14 230);
+                --color-success-subtle: oklch(0.22 0.05 145);
+                --color-warning-subtle: oklch(0.24 0.06 85);
+                --color-danger-subtle: oklch(0.22 0.05 25);
+                --color-info-subtle: oklch(0.22 0.05 230);
+                --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+                --text-xs: clamp(0.6875rem, 0.625rem + 0.25vw, 0.8125rem);
+                --text-sm: clamp(0.8125rem, 0.75rem + 0.25vw, 0.9375rem);
+                --text-base: clamp(0.9375rem, 0.875rem + 0.25vw, 1.0625rem);
+                --text-lg: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+                --text-xl: clamp(1.375rem, 1.125rem + 1vw, 1.875rem);
+                --text-2xl: clamp(1.75rem, 1.375rem + 1.5vw, 2.625rem);
+                --text-3xl: clamp(2.25rem, 1.625rem + 2.5vw, 3.5rem);
+                --space-xs: clamp(0.25rem, 0.2rem + 0.2vw, 0.5rem);
+                --space-sm: clamp(0.5rem, 0.4rem + 0.4vw, 0.875rem);
+                --space-md: clamp(1rem, 0.875rem + 0.5vw, 1.5rem);
+                --space-lg: clamp(1.5rem, 1.25rem + 1vw, 2.5rem);
+                --space-xl: clamp(2rem, 1.5rem + 2vw, 4rem);
+                --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0;
+                --radius-full: 9999px;
+                --ease-out: cubic-bezier(0, 0, 0.2, 1);
+                --ease-in: cubic-bezier(0.4, 0, 1, 1);
+                --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+                --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+                --duration-fast: 150ms;
+                --duration-normal: 250ms;
+                --duration-slow: 400ms;
+                --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+                --shadow-md: 0 4px 12px oklch(0 0 0 / 0.4);
+                --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.5);
             }
         }
 
         /* ── Light Mode (style guide: class-based toggle) ── */
         :root.light {
-            /* Project-specific overrides (differ from tokens.css light mode) */
-            --color-secondary: oklch(0.50 0.19 320);
+            color-scheme: light;
+            --color-accent: oklch(0.52 0.18 178);
+            --color-secondary: oklch(0.55 0.19 30);
+            --accent-muted: oklch(0.52 0.18 178 / 0.12);
+            --accent-subtle: oklch(0.52 0.18 178 / 0.06);
             --color-bg: oklch(0.955 0.005 250);
             --color-surface-hover: oklch(0.97 0.003 250);
             --color-text: oklch(0.16 0.02 250);
             --color-text-secondary: oklch(0.35 0.015 250);
-            --color-heading: oklch(0.38 0.15 178);
+            --color-text-muted: oklch(0.50 0.01 250);
+            --color-text-disabled: oklch(0.68 0.005 250);
+            --color-border: oklch(0 0 0 / 0.08);
+            --color-border-emphasis: oklch(0 0 0 / 0.15);
+            --color-border-strong: oklch(0 0 0 / 0.25);
+            --color-success: oklch(0.52 0.17 145);
+            --color-warning: oklch(0.60 0.16 85);
+            --color-danger: oklch(0.52 0.19 25);
+            --color-info: oklch(0.52 0.14 230);
+            --color-success-subtle: oklch(0.94 0.04 145);
+            --color-warning-subtle: oklch(0.95 0.04 85);
+            --color-danger-subtle: oklch(0.94 0.04 25);
+            --color-info-subtle: oklch(0.94 0.04 230);
+            --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.06);
+            --shadow-md: 0 4px 12px oklch(0 0 0 / 0.08);
+            --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.12);
         }
 
         @layer base {
@@ -64,16 +131,6 @@
                 padding-bottom: env(safe-area-inset-bottom);
             }
             body::before {
-                content: '';
-                position: fixed;
-                inset: 0;
-                pointer-events: none;
-                background: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-                background-size: 60px 60px;
-                mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
-            }
-            html::after {
                 content: '';
                 position: fixed;
                 inset: 0;
@@ -149,7 +206,7 @@
                 justify-content: center;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 8px;
+                border-radius: 0;
                 color: var(--color-text-secondary);
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
@@ -173,7 +230,7 @@
                 gap: 2px;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 8px;
+                border-radius: 0;
                 padding: 3px;
             }
             .filter-btn {
@@ -183,7 +240,7 @@
                 background: transparent;
                 border: none;
                 padding: 5px 12px;
-                border-radius: 5px;
+                border-radius: 0;
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
             }
@@ -207,7 +264,7 @@
                 justify-content: center;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 6px;
+                border-radius: 0;
                 color: var(--color-text-muted);
                 cursor: pointer;
                 font-size: 12px;
@@ -240,7 +297,7 @@
                 color: var(--color-text);
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 6px;
+                border-radius: 0;
                 outline: none;
                 transition: border-color var(--duration-fast) var(--ease-out), max-width var(--duration-normal) var(--ease-out);
             }
@@ -261,7 +318,7 @@
                 color: var(--color-text);
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 10px;
+                border-radius: 0;
                 outline: none;
                 transition: border-color var(--duration-fast) var(--ease-out);
             }
@@ -274,7 +331,7 @@
                 color: oklch(0.15 0 0);
                 background: var(--color-accent);
                 border: none;
-                border-radius: 10px;
+                border-radius: 0;
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
                 white-space: nowrap;
@@ -293,8 +350,8 @@
             .todo-row.dragging { opacity: 0.4; }
             .todo-row.drag-over-above { box-shadow: 0 -2px 0 0 var(--color-accent); }
             .todo-row.drag-over-below { box-shadow: 0 2px 0 0 var(--color-accent); }
-            .todo-row-wrapper.drag-over-above { box-shadow: 0 -2px 0 0 var(--color-accent); border-radius: 14px; }
-            .todo-row-wrapper.drag-over-below { box-shadow: 0 2px 0 0 var(--color-accent); border-radius: 14px; }
+            .todo-row-wrapper.drag-over-above { box-shadow: 0 -2px 0 0 var(--color-accent); border-radius: 0; }
+            .todo-row-wrapper.drag-over-below { box-shadow: 0 2px 0 0 var(--color-accent); border-radius: 0; }
             .drag-handle {
                 display: none;
                 align-items: center;
@@ -326,7 +383,7 @@
                 flex: 1;
                 height: 2px;
                 background: var(--color-accent);
-                border-radius: 1px;
+                border-radius: 0;
             }
             .divider-delete {
                 color: var(--color-text-disabled);
@@ -348,7 +405,7 @@
                 color: var(--color-text-muted);
                 background: transparent;
                 border: 1px dashed var(--color-border);
-                border-radius: 10px;
+                border-radius: 0;
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
             }
@@ -363,7 +420,7 @@
             .group-heading h3 {
                 font-size: var(--text-sm);
                 font-weight: 600;
-                color: var(--color-heading);
+                color: var(--color-accent);
                 letter-spacing: -0.01em;
             }
             .group-heading .badge {
@@ -382,7 +439,7 @@
                 padding: 12px 16px;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 14px;
+                border-radius: 0;
                 margin-bottom: 4px;
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
@@ -395,7 +452,7 @@
                 min-height: 20px;
                 align-self: stretch;
                 background: var(--color-accent);
-                border-radius: 2px;
+                border-radius: 0;
                 flex-shrink: 0;
             }
             .todo-pip.pip-blue { background: oklch(0.65 0.28 260); }
@@ -409,7 +466,7 @@
                 z-index: 100;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border-emphasis);
-                border-radius: 10px;
+                border-radius: 0;
                 padding: 6px;
                 display: flex;
                 gap: 6px;
@@ -436,7 +493,7 @@
                 font-weight: 500;
                 letter-spacing: 0.02em;
                 padding: 1px 6px;
-                border-radius: 4px;
+                border-radius: 0;
                 background: oklch(1 0 0 / 0.06);
                 color: var(--color-text-muted);
                 white-space: nowrap;
@@ -450,7 +507,7 @@
                 z-index: 100;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border-emphasis);
-                border-radius: 8px;
+                border-radius: 0;
                 padding: 4px;
                 display: flex;
                 flex-direction: column;
@@ -462,7 +519,7 @@
                 padding: 5px 10px;
                 font-size: 12px;
                 cursor: pointer;
-                border-radius: 5px;
+                border-radius: 0;
                 color: var(--color-text-secondary);
                 transition: background var(--duration-fast), color var(--duration-fast);
             }
@@ -472,7 +529,7 @@
                 width: 22px;
                 height: 22px;
                 flex-shrink: 0;
-                border-radius: 6px;
+                border-radius: 0;
                 border: 2px solid var(--color-border-emphasis);
                 background: var(--color-surface-hover);
                 transition: all var(--duration-fast) var(--ease-spring);
@@ -567,14 +624,14 @@
                 width: 140px;
                 height: 16px;
                 background: var(--color-surface-hover);
-                border-radius: 8px;
+                border-radius: 0;
                 margin-bottom: var(--space-sm);
             }
             .skeleton-row {
                 height: 48px;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 14px;
+                border-radius: 0;
                 margin-bottom: 4px;
                 overflow: hidden;
                 position: relative;
@@ -646,7 +703,7 @@
             .todo-row-wrapper {
                 position: relative;
                 overflow: hidden;
-                border-radius: 14px;
+                border-radius: 0;
                 margin-bottom: 4px;
             }
             .swipe-bg {
@@ -657,7 +714,7 @@
                 padding-left: 20px;
                 font-size: 22px;
                 color: white;
-                border-radius: 14px;
+                border-radius: 0;
                 background: var(--color-success);
                 opacity: 0;
                 transition: opacity 0.15s;
@@ -691,7 +748,7 @@
                 color: var(--color-text);
                 background: var(--color-surface-hover);
                 border: 1px solid var(--color-accent);
-                border-radius: 6px;
+                border-radius: 0;
                 padding: 2px 8px;
                 flex: 1;
                 outline: none;
@@ -706,7 +763,7 @@
                 background: var(--color-surface-raised);
                 color: var(--color-text);
                 border: 1px solid var(--color-border-emphasis);
-                border-radius: 10px;
+                border-radius: 0;
                 padding: 10px 18px;
                 font-size: var(--text-sm);
                 font-family: var(--font-sans);
@@ -750,7 +807,7 @@
                 z-index: 100;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border-emphasis);
-                border-radius: 10px;
+                border-radius: 0;
                 padding: 4px 0;
                 min-width: 150px;
                 box-shadow: var(--shadow-md);
@@ -763,8 +820,8 @@
                 transition: background var(--duration-fast);
             }
             .snooze-menu-item:hover { background: var(--color-surface-hover); }
-            .snooze-menu-item:first-child { border-radius: 10px 10px 0 0; }
-            .snooze-menu-item:last-child { border-radius: 0 0 10px 10px; }
+            .snooze-menu-item:first-child { border-radius: 0; }
+            .snooze-menu-item:last-child { border-radius: 0; }
 
             /* ── Snoozed section (like completed) ──── */
             .snoozed-toggle {
@@ -805,7 +862,7 @@
                 justify-content: center;
                 background: var(--color-surface);
                 border: 1px solid var(--color-border);
-                border-radius: 8px;
+                border-radius: 0;
                 color: var(--color-text-secondary);
                 cursor: pointer;
                 transition: all var(--duration-fast) var(--ease-out);
@@ -815,8 +872,7 @@
             .theme-toggle:active { transform: scale(0.92); }
 
             /* Light mode: soften grid overlay + noise */
-            :root.light body::before { opacity: 0.4; background: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size: 60px 60px; mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent); }
-            :root.light html::after { opacity: 0.01; }
+            :root.light body::before { opacity: 0.01; mix-blend-mode: multiply; }
             :root.light .todo-row.completed { opacity: 0.6; }
 
             @media (prefers-reduced-motion: reduce) {
@@ -899,6 +955,7 @@
             var isLight = document.documentElement.classList.contains('light');
             localStorage.setItem('todo-theme', isLight ? 'light' : 'dark');
             document.getElementById('meta-theme-color').content = isLight ? '#f2f2f4' : '#1a1f2e';
+            document.querySelector('meta[name="color-scheme"]').content = isLight ? 'light' : 'dark';
             updateThemeIcon();
         });
 
@@ -1907,7 +1964,7 @@
                     snzToggle.appendChild(snzLabel);
                     var snzBadge = document.createElement('span');
                     snzBadge.className = 'toggle-badge';
-                    snzBadge.style.background = 'oklch(0.72 0.18 320 / 0.12)';
+                    snzBadge.style.background = 'oklch(0.74 0.18 30 / 0.12)';
                     snzBadge.style.color = 'var(--color-secondary)';
                     snzBadge.textContent = snoozedTasks.length;
                     snzToggle.appendChild(snzBadge);
