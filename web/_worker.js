@@ -66,6 +66,8 @@ async function walkChildren(token, blockId, heading, depth) {
         } else if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
             const sub = plainText(b[t]?.rich_text);
             if (b.has_children) todos.push(...await walkChildren(token, b.id, sub, depth + 1));
+        } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1));
         }
     }
     return todos;
