@@ -51,7 +51,7 @@ function isRecent(heading, cutoff) {
 }
 
 async function walkChildren(token, blockId, heading, depth) {
-    if (depth > 2 || subCounter.count >= MAX_SUB) return [];
+    if (depth > 5 || subCounter.count >= MAX_SUB) return [];
     const todos = [];
     const children = await allChildren(token, blockId);
     for (const b of children) {
@@ -59,7 +59,7 @@ async function walkChildren(token, blockId, heading, depth) {
         const t = b.type;
         if (t === 'to_do') {
             todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading });
-            if (b.has_children && depth < 1) todos.push(...await walkChildren(token, b.id, heading, depth + 1));
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1));
         } else if (t === 'toggle') {
             const label = plainText(b.toggle?.rich_text) || heading;
             if (b.has_children) todos.push(...await walkChildren(token, b.id, label, depth + 1));
