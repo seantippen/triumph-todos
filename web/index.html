@@ -925,7 +925,7 @@
         var data = null;
         var filterMode = sessionStorage.getItem('todo-filter') || 'all';
         var completedExpanded = false;
-        var searchQuery = sessionStorage.getItem('todo-search') || '';
+        var searchQuery = (sessionStorage.getItem('todo-search') || '').toLowerCase();
         var refreshTimer = null;
         var refreshBtn = document.getElementById('refresh-btn');
         var searchDebounceTimer = null;
@@ -1561,9 +1561,17 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: todo.id })
             }).then(function(r) {
-                if (!r.ok) { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); }
-                else { needsFreshFetch = true; scheduleRefresh(); }
-            }).catch(function() { data.todos.splice(idx, 0, todo); render(); showToast('Couldn\u2019t delete'); });
+                if (!r.ok) {
+                    // Re-insert at current position (idx may be stale after renders)
+                    var curIdx = data && data.todos ? data.todos.indexOf(todo) : -1;
+                    if (curIdx === -1 && data && data.todos) data.todos.splice(Math.min(idx, data.todos.length), 0, todo);
+                    render(); showToast('Couldn\u2019t delete');
+                } else { needsFreshFetch = true; scheduleRefresh(); }
+            }).catch(function() {
+                var curIdx = data && data.todos ? data.todos.indexOf(todo) : -1;
+                if (curIdx === -1 && data && data.todos) data.todos.splice(Math.min(idx, data.todos.length), 0, todo);
+                render(); showToast('Couldn\u2019t delete');
+            });
         }
 
         function makeDividerRow(item) {
@@ -1857,11 +1865,11 @@
             input.placeholder = 'Search...';
             input.value = searchQuery;
             input.addEventListener('input', function() {
-                var val = this.value.toLowerCase();
+                var val = this.value;
                 if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
                 searchDebounceTimer = setTimeout(function() {
-                    searchQuery = val;
-                    sessionStorage.setItem('todo-search', searchQuery);
+                    searchQuery = val.toLowerCase();
+                    sessionStorage.setItem('todo-search', val);
                     render();
                 }, 150);
             });
@@ -1884,7 +1892,7 @@
             atBtn.disabled = addingTask;
             function submitTask() {
                 var v = ati.value.trim();
-                if (v) { addTask(v); }
+                if (v) { ati.value = ''; addTask(v); }
             }
             atBtn.addEventListener('click', submitTask);
             ati.addEventListener('keydown', function(e) { if (e.key === 'Enter') submitTask(); });

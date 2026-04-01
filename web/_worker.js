@@ -9,7 +9,7 @@ const CACHE_TTL = 120; // seconds
 const subCounter = { count: 0 };
 const MAX_SUB = 45;
 
-async function fetchChildren(token, blockId, cursor) {
+async function fetchChildren(token, blockId, cursor, retries = 0) {
     if (subCounter.count >= MAX_SUB) return { results: [], next: null };
     subCounter.count++;
     const params = new URLSearchParams({ page_size: '100' });
@@ -18,9 +18,11 @@ async function fetchChildren(token, blockId, cursor) {
         headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION }
     });
     if (r.status === 429) {
+        if (retries >= 3) throw new Error('Notion API rate limit exceeded after 3 retries');
         const wait = parseFloat(r.headers.get('Retry-After') || '1') * 1000;
         await new Promise(ok => setTimeout(ok, wait));
-        return fetchChildren(token, blockId, cursor);
+        subCounter.count--; // don't count the retried call twice
+        return fetchChildren(token, blockId, cursor, retries + 1);
     }
     if (!r.ok) throw new Error(`Notion API error: ${r.status}`);
     const data = await r.json();
@@ -74,7 +76,6 @@ async function walkChildren(token, blockId, heading, depth) {
 }
 
 async function collectTodos(token) {
-    subCounter.count = 0;
     const cutoff = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
     const todos = [];
     let heading = 'Ungrouped';
@@ -136,6 +137,7 @@ export default {
             if (cached) return cached;
 
             try {
+                subCounter.count = 0;
                 const tasksPageId = env.TASKS_PAGE_ID;
                 const [journalTodos, quickTodos] = await Promise.all([
                     collectTodos(token),
@@ -159,6 +161,7 @@ export default {
             if (!tasksPageId) return jsonResp({ error: 'TASKS_PAGE_ID not configured' }, 500);
             const { text } = await request.json();
             if (!text || typeof text !== 'string' || !text.trim()) return jsonResp({ error: 'text required' }, 400);
+            if (text.length > 2000) return jsonResp({ error: 'text too long (max 2000 chars)' }, 400);
             const r = await fetch(`${BASE_URL}/blocks/${tasksPageId}/children`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
@@ -196,7 +199,7 @@ export default {
             const token = env.NOTION_TOKEN;
             if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
             const { id, checked } = await request.json();
-            if (!id || typeof checked !== 'boolean') return jsonResp({ error: 'id and checked required' }, 400);
+            if (!id || typeof id !== 'string' || typeof checked !== 'boolean') return jsonResp({ error: 'id (string) and checked (boolean) required' }, 400);
             const r = await fetch(`${BASE_URL}/blocks/${id}`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
@@ -213,7 +216,8 @@ export default {
             const token = env.NOTION_TOKEN;
             if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
             const { id, text } = await request.json();
-            if (!id || typeof text !== 'string' || !text.trim()) return jsonResp({ error: 'id and text required' }, 400);
+            if (!id || typeof id !== 'string' || typeof text !== 'string' || !text.trim()) return jsonResp({ error: 'id and text required' }, 400);
+            if (text.length > 2000) return jsonResp({ error: 'text too long (max 2000 chars)' }, 400);
             const r = await fetch(`${BASE_URL}/blocks/${id}`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION, 'Content-Type': 'application/json' },
@@ -229,7 +233,7 @@ export default {
             const token = env.NOTION_TOKEN;
             if (!token) return jsonResp({ error: 'NOTION_TOKEN not configured' }, 500);
             const { id } = await request.json();
-            if (!id) return jsonResp({ error: 'id required' }, 400);
+            if (!id || typeof id !== 'string') return jsonResp({ error: 'id (string) required' }, 400);
             const r = await fetch(`${BASE_URL}/blocks/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}`, 'Notion-Version': NOTION_API_VERSION },
@@ -250,7 +254,9 @@ export default {
         if (url.pathname === '/api/prefs' && request.method === 'POST') {
             if (!env.TODO_PREFS) return jsonResp({ error: 'KV not configured' }, 500);
             const body = await request.json();
-            await env.TODO_PREFS.put('prefs', JSON.stringify(body));
+            const serialized = JSON.stringify(body);
+            if (serialized.length > 512000) return jsonResp({ error: 'prefs payload too large' }, 400);
+            await env.TODO_PREFS.put('prefs', serialized);
             return jsonResp({ ok: true });
         }
 
