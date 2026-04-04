@@ -878,6 +878,25 @@
 
         var needsFreshFetch = false;
         var prefsLoaded = false;
+        var LOCAL_CACHE_KEY = 'todo-cached-response';
+        var renderedFromCache = false;
+
+        // Instant render from localStorage cache (0ms perceived load)
+        function tryLocalCache() {
+            try {
+                var cached = localStorage.getItem(LOCAL_CACHE_KEY);
+                if (!cached) return false;
+                var parsed = JSON.parse(cached);
+                if (!parsed.todos) return false;
+                data = parsed;
+                prefsLoaded = true; // prefs are baked into localStorage state already
+                render();
+                renderedFromCache = true;
+                updateSyncStatus();
+                return true;
+            } catch(e) { return false; }
+        }
+
         function load() {
             var url = '/api/todos';
             var opts = {};
@@ -893,10 +912,13 @@
                 .then(function(d) {
                     if (d.error) throw new Error(d.error);
                     data = d;
+                    // Persist to localStorage for instant load next time
+                    try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(d)); } catch(e) {}
                     refreshBtn.classList.remove('spinning');
                     updateSyncStatus();
                     return prefsFetch.then(function() { render(); });
                 }).then(function() {
+                    renderedFromCache = false;
                     scheduleRefresh();
                 })
                 .catch(function(e) {
@@ -906,7 +928,7 @@
                     el.className = 'sync-status error';
                     if (data) {
                         // Keep existing data visible, show toast
-                        showToast('Sync failed — showing cached data');
+                        if (!renderedFromCache) showToast('Sync failed — showing cached data');
                     } else {
                         // First load failed, show error state
                         app.textContent = '';
@@ -1981,6 +2003,8 @@
             updateFavicon(active.length, active.length + completed.length);
         }
 
+        // Try instant render from localStorage, then always fetch fresh in background
+        tryLocalCache();
         load();
 
         // PWA shortcut: auto-focus add input when opened via ?action=add

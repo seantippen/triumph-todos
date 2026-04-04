@@ -3,7 +3,7 @@ const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
 const QUICK_TASKS_HEADING = 'Quick Tasks';
 const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
-const CACHE_TTL = 120; // seconds
+const CACHE_TTL = 300; // seconds
 
 // Track subrequests to stay under Cloudflare's 50 limit (shared counter object for concurrency safety)
 const subCounter = { count: 0 };
