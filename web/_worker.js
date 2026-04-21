@@ -2,7 +2,7 @@ const NOTION_API_VERSION = '2022-06-28';
 const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
 const QUICK_TASKS_HEADING = 'Quick Tasks';
-const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache-v3';
+const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache-v4';
 const CACHE_TTL = 300; // seconds
 
 // Cloudflare Free Workers cap each invocation at 50 subrequests. 45 leaves
@@ -83,9 +83,9 @@ async function walkChildren(token, blockId, heading, depth, cutoff) {
         } else if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
             const sub = plainText(b[t]?.rich_text);
             if (b.has_children) todos.push(...await walkChildren(token, b.id, sub, depth + 1, cutoff));
-        } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
-            if (b.has_children && depth < 2) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
         }
+        // Intentionally skip bulleted/numbered list and paragraph recursion:
+        // Notes under journal entries burn subrequests and rarely contain todos.
     }
     return todos;
 }
@@ -112,9 +112,9 @@ async function collectTodos(token) {
                 if (shouldKeep(checked, heading, cutoff)) {
                     todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading });
                 }
-            } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             }
+            // Intentionally skip bulleted/numbered list recursion at top level
+            // for the same subrequest-budget reason as in walkChildren.
         }
     } while (cursor);
     return todos;
