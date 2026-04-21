@@ -5,10 +5,10 @@ const QUICK_TASKS_HEADING = 'Quick Tasks';
 const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
 const CACHE_TTL = 300; // seconds
 
-// Track subrequests as a safety net. Cloudflare's hard cap is 50 (Free) / 1000 (Paid).
-// 950 leaves headroom on Paid; on Free the platform will fail first at 50 regardless.
+// Cloudflare Free Workers cap each invocation at 50 subrequests. 45 leaves
+// headroom so the walk truncates gracefully before CF kills the worker.
 const subCounter = { count: 0 };
-const MAX_SUB = 950;
+const MAX_SUB = 45;
 
 // Unchecked to-dos stay forever. Completed to-dos under a dated heading older
 // than this get dropped at the worker so the client doesn't drown in history.
