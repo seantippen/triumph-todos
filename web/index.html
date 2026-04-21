@@ -379,11 +379,11 @@
                 border-radius: 0;
                 flex-shrink: 0;
             }
-            /* Categorical selector colors — mapped to the approved chart-series palette (style guide data-series exception). */
-            .todo-pip.pip-blue { background: #6BA3FF; }
-            .todo-pip.pip-purple { background: #C688E0; }
-            .todo-pip.pip-red { background: #F28878; }
-            .todo-pip.pip-green { background: #4CC97A; }
+            /* Categorical selector colors — kept distinct from the chart palette on purpose. */
+            .todo-pip.pip-blue { background: oklch(0.65 0.28 260); }
+            .todo-pip.pip-purple { background: oklch(0.60 0.30 320); }
+            .todo-pip.pip-red { background: oklch(0.60 0.28 28); }
+            .todo-pip.pip-green { background: oklch(0.65 0.26 145); }
 
             /* ── Pip Color Menu ─────────────────────── */
             .pip-menu {
@@ -407,10 +407,10 @@
             }
             .pip-menu-dot:hover { transform: translateY(-1px); border-color: var(--color-border-emphasis); }
             .pip-menu-dot.selected { border-color: var(--color-text); }
-            .pip-menu-dot.dot-green { background: #4CC97A; }
-            .pip-menu-dot.dot-blue { background: #6BA3FF; }
-            .pip-menu-dot.dot-purple { background: #C688E0; }
-            .pip-menu-dot.dot-red { background: #F28878; }
+            .pip-menu-dot.dot-green { background: oklch(0.65 0.26 145); }
+            .pip-menu-dot.dot-blue { background: oklch(0.65 0.28 260); }
+            .pip-menu-dot.dot-purple { background: oklch(0.60 0.30 320); }
+            .pip-menu-dot.dot-red { background: oklch(0.60 0.28 28); }
 
             /* ── Requester Tag ────────────────────────── */
             .requester-tag {
