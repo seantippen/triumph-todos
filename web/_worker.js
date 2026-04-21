@@ -2,7 +2,7 @@ const NOTION_API_VERSION = '2022-06-28';
 const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
 const QUICK_TASKS_HEADING = 'Quick Tasks';
-const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
+const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache-v2';
 const CACHE_TTL = 300; // seconds
 
 // Cloudflare Free Workers cap each invocation at 50 subrequests. 45 leaves
