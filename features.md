@@ -10,7 +10,8 @@
 - Add new tasks from either app — stored in a dedicated Quick Tasks page
 - Check/uncheck tasks — syncs back to Notion instantly with optimistic UI
 - Ctrl+Z undo — reverts the last checkbox toggle (local + Notion)
-- Pulls every to-do in the journal — no age cutoff; filter client-side with All / Today / This Week
+- Pulls every unchecked to-do in the journal regardless of age — nothing silently falls off
+- Checked to-dos older than 7 days (by their heading date) are dropped at the worker so the browser doesn't lag under old history
 
 ## Views
 - **Grouped mode** — tasks organized under Notion date headings with count badges

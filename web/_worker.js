@@ -10,6 +10,21 @@ const CACHE_TTL = 300; // seconds
 const subCounter = { count: 0 };
 const MAX_SUB = 950;
 
+// Unchecked to-dos stay forever. Completed to-dos under a dated heading older
+// than this get dropped at the worker so the client doesn't drown in history.
+const COMPLETED_MAX_AGE_DAYS = 7;
+
+function headingDate(heading) {
+    const m = (heading || '').match(/(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : null;
+}
+
+function shouldKeep(checked, heading, cutoff) {
+    if (!checked) return true;
+    const d = headingDate(heading);
+    return !d || d >= cutoff;
+}
+
 async function fetchChildren(token, blockId, cursor, retries = 0) {
     if (subCounter.count >= MAX_SUB) return { results: [], next: null };
     subCounter.count++;
@@ -48,7 +63,7 @@ function plainText(rt) {
     }).join('').trim();
 }
 
-async function walkChildren(token, blockId, heading, depth) {
+async function walkChildren(token, blockId, heading, depth, cutoff) {
     if (depth > 10 || subCounter.count >= MAX_SUB) return [];
     const todos = [];
     const children = await allChildren(token, blockId);
@@ -56,22 +71,26 @@ async function walkChildren(token, blockId, heading, depth) {
         if (subCounter.count >= MAX_SUB) break;
         const t = b.type;
         if (t === 'to_do') {
-            todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading });
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1));
+            const checked = b.to_do?.checked || false;
+            if (shouldKeep(checked, heading, cutoff)) {
+                todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading });
+            }
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
         } else if (t === 'toggle') {
             const label = plainText(b.toggle?.rich_text) || heading;
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, label, depth + 1));
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, label, depth + 1, cutoff));
         } else if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
             const sub = plainText(b[t]?.rich_text);
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, sub, depth + 1));
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, sub, depth + 1, cutoff));
         } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1));
+            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
         }
     }
     return todos;
 }
 
 async function collectTodos(token) {
+    const cutoff = new Date(Date.now() - COMPLETED_MAX_AGE_DAYS * 86400000).toISOString().split('T')[0];
     const todos = [];
     let heading = 'Ungrouped';
     let cursor = null;
@@ -83,15 +102,18 @@ async function collectTodos(token) {
             const t = b.type;
             if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
                 heading = plainText(b[t]?.rich_text);
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             } else if (t === 'toggle') {
                 const label = plainText(b.toggle?.rich_text) || heading;
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, label, 0));
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, label, 0, cutoff));
             } else if (t === 'to_do') {
-                todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading });
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
+                const checked = b.to_do?.checked || false;
+                if (shouldKeep(checked, heading, cutoff)) {
+                    todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading });
+                }
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             }
         }
     } while (cursor);
