@@ -64,7 +64,7 @@ function plainText(rt) {
 }
 
 async function walkChildren(token, blockId, heading, depth, cutoff) {
-    if (depth > 10 || subCounter.count >= MAX_SUB) return [];
+    if (depth > 3 || subCounter.count >= MAX_SUB) return [];
     const todos = [];
     const children = await allChildren(token, blockId);
     for (const b of children) {
@@ -125,9 +125,10 @@ async function collectQuickTasks(token, tasksPageId) {
     const todos = [];
     const children = await allChildren(token, tasksPageId);
     for (const b of children) {
-        if (b.type === 'to_do') {
-            todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading: QUICK_TASKS_HEADING });
-        }
+        if (b.type !== 'to_do') continue;
+        const checked = b.to_do?.checked || false;
+        if (checked) continue;
+        todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading: QUICK_TASKS_HEADING });
     }
     return todos;
 }
@@ -161,7 +162,8 @@ export default {
                     collectQuickTasks(token, tasksPageId),
                 ]);
                 const todos = [...quickTodos, ...journalTodos];
-                const resp = jsonResp({ todos, lastSynced: new Date().toISOString() });
+                const truncated = subCounter.count >= MAX_SUB;
+                const resp = jsonResp({ todos, lastSynced: new Date().toISOString(), truncated });
                 const toCache = new Response(resp.clone().body, resp);
                 toCache.headers.set('Cache-Control', `max-age=${CACHE_TTL}`);
                 ctx.waitUntil(cache.put(cacheReq, toCache));
