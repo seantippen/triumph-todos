@@ -14,14 +14,21 @@
     <link rel="stylesheet" href="https://design.seantippen.com/tokens.css">
     <script>
         // Restore theme before paint to prevent flash
-        if (localStorage.getItem('todo-theme') === 'light') {
-            document.documentElement.classList.add('light');
-            document.querySelector('meta[name="color-scheme"]').content = 'light';
-            document.addEventListener('DOMContentLoaded', function() {
-                var mc = document.getElementById('meta-theme-color');
-                if (mc) mc.content = '#f2f2f4';
-            });
-        }
+        (function() {
+            var stored = localStorage.getItem('theme');
+            if (stored === null) {
+                var legacy = localStorage.getItem('todo-theme');
+                if (legacy !== null) { stored = legacy; localStorage.setItem('theme', legacy); localStorage.removeItem('todo-theme'); }
+            }
+            if (stored === 'light') {
+                document.documentElement.classList.add('light');
+                document.querySelector('meta[name="color-scheme"]').content = 'light';
+                document.addEventListener('DOMContentLoaded', function() {
+                    var mc = document.getElementById('meta-theme-color');
+                    if (mc) mc.content = '#f2f2f4';
+                });
+            }
+        })();
     </script>
     <link rel="manifest" href="/manifest.json">
     <style>
@@ -75,8 +82,8 @@
                 top: 0;
                 z-index: 10;
                 background: color-mix(in oklch, var(--color-bg) 85%, transparent);
-                backdrop-filter: blur(24px) saturate(1.2);
-                -webkit-backdrop-filter: blur(24px) saturate(1.2);
+                backdrop-filter: blur(12px) saturate(1.4);
+                -webkit-backdrop-filter: blur(12px) saturate(1.4);
                 border-bottom: 1px solid var(--color-border);
                 margin: 0 calc(var(--space-md) * -1);
                 padding: 0 var(--space-md);
@@ -129,8 +136,8 @@
                 transition: all var(--duration-fast) var(--ease-out);
                 font-size: 14px;
             }
-            .refresh-btn:hover { color: var(--color-text); border-color: var(--color-border-emphasis); }
-            .refresh-btn:active { transform: scale(0.92); }
+            .refresh-btn:hover { color: var(--color-text); border-color: var(--color-border-emphasis); transform: translateY(-1px); }
+            .refresh-btn:active { filter: brightness(0.9); }
             .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -253,8 +260,8 @@
                 transition: all var(--duration-fast) var(--ease-out);
                 white-space: nowrap;
             }
-            .add-task-btn:hover { filter: brightness(1.1); }
-            .add-task-btn:active { transform: scale(0.96); }
+            .add-task-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+            .add-task-btn:active { filter: brightness(0.95); transform: none; }
             .add-task-btn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
@@ -346,7 +353,7 @@
                 color: var(--color-text-muted);
                 background: var(--color-surface);
                 padding: 1px 7px;
-                border-radius: 999px;
+                border-radius: var(--radius-full);
             }
 
             .todo-row {
@@ -363,7 +370,7 @@
                 -webkit-tap-highlight-color: transparent;
             }
             .todo-row:hover { background: var(--color-surface-hover); }
-            .todo-row:active { transform: scale(0.99); }
+            .todo-row:active { filter: brightness(0.97); }
             .todo-pip {
                 width: 3px;
                 min-height: 20px;
@@ -372,10 +379,11 @@
                 border-radius: 0;
                 flex-shrink: 0;
             }
-            .todo-pip.pip-blue { background: oklch(0.65 0.28 260); }
-            .todo-pip.pip-purple { background: oklch(0.60 0.30 320); }
-            .todo-pip.pip-red { background: oklch(0.60 0.28 28); }
-            .todo-pip.pip-green { background: oklch(0.65 0.26 145); }
+            /* Categorical selector colors — mapped to the approved chart-series palette (style guide data-series exception). */
+            .todo-pip.pip-blue { background: #6BA3FF; }
+            .todo-pip.pip-purple { background: #C688E0; }
+            .todo-pip.pip-red { background: #F28878; }
+            .todo-pip.pip-green { background: #4CC97A; }
 
             /* ── Pip Color Menu ─────────────────────── */
             .pip-menu {
@@ -392,17 +400,17 @@
             .pip-menu-dot {
                 width: 20px;
                 height: 20px;
-                border-radius: 50%;
+                border-radius: var(--radius-full);
                 cursor: pointer;
                 border: 2px solid transparent;
-                transition: transform var(--duration-fast) var(--ease-spring), border-color var(--duration-fast);
+                transition: border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
             }
-            .pip-menu-dot:hover { transform: scale(1.2); }
+            .pip-menu-dot:hover { transform: translateY(-1px); border-color: var(--color-border-emphasis); }
             .pip-menu-dot.selected { border-color: var(--color-text); }
-            .pip-menu-dot.dot-green { background: oklch(0.65 0.26 145); }
-            .pip-menu-dot.dot-blue { background: oklch(0.65 0.28 260); }
-            .pip-menu-dot.dot-purple { background: oklch(0.60 0.30 320); }
-            .pip-menu-dot.dot-red { background: oklch(0.60 0.28 28); }
+            .pip-menu-dot.dot-green { background: #4CC97A; }
+            .pip-menu-dot.dot-blue { background: #6BA3FF; }
+            .pip-menu-dot.dot-purple { background: #C688E0; }
+            .pip-menu-dot.dot-red { background: #F28878; }
 
             /* ── Requester Tag ────────────────────────── */
             .requester-tag {
@@ -455,7 +463,6 @@
             .todo-check.checked {
                 background: var(--accent-muted);
                 border-color: var(--color-accent);
-                transform: scale(0.9);
             }
             .todo-check.checked::after {
                 content: '';
@@ -524,7 +531,7 @@
                 color: var(--color-accent);
                 background: var(--accent-subtle);
                 padding: 2px 8px;
-                border-radius: 999px;
+                border-radius: var(--radius-full);
             }
             .completed-list {
                 max-height: 0;
@@ -630,7 +637,7 @@
                 align-items: center;
                 padding-left: 20px;
                 font-size: 22px;
-                color: white;
+                color: oklch(1 0 0);
                 border-radius: 0;
                 background: var(--color-success);
                 opacity: 0;
@@ -654,7 +661,7 @@
                 transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-spring), opacity var(--duration-fast);
             }
             .todo-row:hover .star-btn, .star-btn:focus { opacity: 1; }
-            .star-btn:hover { color: var(--color-warning); transform: scale(1.15); opacity: 1; }
+            .star-btn:hover { color: var(--color-warning); transform: translateY(-1px); opacity: 1; }
             .star-btn.pinned { color: var(--color-warning); opacity: 1; }
 
             /* ── Inline Edit ────────────────────────── */
@@ -785,8 +792,8 @@
                 transition: all var(--duration-fast) var(--ease-out);
                 font-size: 15px;
             }
-            .theme-toggle:hover { color: var(--color-text); border-color: var(--color-border-emphasis); }
-            .theme-toggle:active { transform: scale(0.92); }
+            .theme-toggle:hover { color: var(--color-text); border-color: var(--color-border-emphasis); transform: translateY(-1px); }
+            .theme-toggle:active { filter: brightness(0.9); }
 
             /* Light mode: soften grid overlay + noise */
             :root.light body::before { opacity: 0.01; mix-blend-mode: multiply; }
@@ -870,7 +877,7 @@
         themeToggle.addEventListener('click', function() {
             document.documentElement.classList.toggle('light');
             var isLight = document.documentElement.classList.contains('light');
-            localStorage.setItem('todo-theme', isLight ? 'light' : 'dark');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
             document.getElementById('meta-theme-color').content = isLight ? '#f2f2f4' : '#1a1f2e';
             document.querySelector('meta[name="color-scheme"]').content = isLight ? 'light' : 'dark';
             updateThemeIcon();
@@ -1912,7 +1919,7 @@
                     snzToggle.appendChild(snzLabel);
                     var snzBadge = document.createElement('span');
                     snzBadge.className = 'toggle-badge';
-                    snzBadge.style.background = 'oklch(0.74 0.18 30 / 0.12)';
+                    snzBadge.style.background = 'color-mix(in oklch, var(--color-secondary) 12%, transparent)';
                     snzBadge.style.color = 'var(--color-secondary)';
                     snzBadge.textContent = snoozedTasks.length;
                     snzToggle.appendChild(snzBadge);
