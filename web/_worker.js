@@ -5,9 +5,10 @@ const QUICK_TASKS_HEADING = 'Quick Tasks';
 const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache';
 const CACHE_TTL = 300; // seconds
 
-// Track subrequests to stay under Cloudflare's 50 limit (shared counter object for concurrency safety)
+// Track subrequests as a safety net. Cloudflare's hard cap is 50 (Free) / 1000 (Paid).
+// 950 leaves headroom on Paid; on Free the platform will fail first at 50 regardless.
 const subCounter = { count: 0 };
-const MAX_SUB = 45;
+const MAX_SUB = 950;
 
 async function fetchChildren(token, blockId, cursor, retries = 0) {
     if (subCounter.count >= MAX_SUB) return { results: [], next: null };
@@ -47,13 +48,8 @@ function plainText(rt) {
     }).join('').trim();
 }
 
-function isRecent(heading, cutoff) {
-    const m = heading.match(/(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] >= cutoff : true;
-}
-
 async function walkChildren(token, blockId, heading, depth) {
-    if (depth > 5 || subCounter.count >= MAX_SUB) return [];
+    if (depth > 10 || subCounter.count >= MAX_SUB) return [];
     const todos = [];
     const children = await allChildren(token, blockId);
     for (const b of children) {
@@ -76,10 +72,8 @@ async function walkChildren(token, blockId, heading, depth) {
 }
 
 async function collectTodos(token) {
-    const cutoff = new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0];
     const todos = [];
     let heading = 'Ungrouped';
-    let oldStreak = 0;
     let cursor = null;
     do {
         const { results, next } = await fetchChildren(token, PAGE_ID, cursor);
@@ -89,14 +83,15 @@ async function collectTodos(token) {
             const t = b.type;
             if (['heading_1', 'heading_2', 'heading_3'].includes(t)) {
                 heading = plainText(b[t]?.rich_text);
-                if (!isRecent(heading, cutoff)) { oldStreak++; if (oldStreak >= 2) return todos; continue; }
-                oldStreak = 0;
                 if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
             } else if (t === 'toggle') {
                 const label = plainText(b.toggle?.rich_text) || heading;
                 if (b.has_children) todos.push(...await walkChildren(token, b.id, label, 0));
             } else if (t === 'to_do') {
                 todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked: b.to_do?.checked || false, heading });
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
+            } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
+                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0));
             }
         }
     } while (cursor);

@@ -10,7 +10,7 @@
 - Add new tasks from either app — stored in a dedicated Quick Tasks page
 - Check/uncheck tasks — syncs back to Notion instantly with optimistic UI
 - Ctrl+Z undo — reverts the last checkbox toggle (local + Notion)
-- Smart 7-day window — only shows recent tasks, ignores old history
+- Pulls every to-do in the journal — no age cutoff; filter client-side with All / Today / This Week
 
 ## Views
 - **Grouped mode** — tasks organized under Notion date headings with count badges
@@ -59,4 +59,4 @@
 - Notion API rate limit handling with automatic retry
 - No database — Notion is the database
 - No build step — single HTML file, vanilla JS
-- Subrequest budgeting to stay under Cloudflare's 50-request limit
+- Subrequest budgeting (950 cap) with headroom below Cloudflare's 1000/invocation Paid-plan limit
