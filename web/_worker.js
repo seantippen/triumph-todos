@@ -2,7 +2,7 @@ const NOTION_API_VERSION = '2022-06-28';
 const BASE_URL = 'https://api.notion.com/v1';
 const PAGE_ID = '29a5bdeb-6ad9-8046-b54f-c69734ecfe6b';
 const QUICK_TASKS_HEADING = 'Quick Tasks';
-const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache-v2';
+const CACHE_KEY = 'https://todo.seantippen.com/_internal/todos-cache-v3';
 const CACHE_TTL = 300; // seconds
 
 // Cloudflare Free Workers cap each invocation at 50 subrequests. 45 leaves
@@ -75,7 +75,8 @@ async function walkChildren(token, blockId, heading, depth, cutoff) {
             if (shouldKeep(checked, heading, cutoff)) {
                 todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading });
             }
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
+            // Skip has_children recursion on to_do: sub-todos are rare and burn
+            // subrequests that are needed to reach older date headings.
         } else if (t === 'toggle') {
             const label = plainText(b.toggle?.rich_text) || heading;
             if (b.has_children) todos.push(...await walkChildren(token, b.id, label, depth + 1, cutoff));
@@ -83,7 +84,7 @@ async function walkChildren(token, blockId, heading, depth, cutoff) {
             const sub = plainText(b[t]?.rich_text);
             if (b.has_children) todos.push(...await walkChildren(token, b.id, sub, depth + 1, cutoff));
         } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
-            if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
+            if (b.has_children && depth < 2) todos.push(...await walkChildren(token, b.id, heading, depth + 1, cutoff));
         }
     }
     return todos;
@@ -111,7 +112,6 @@ async function collectTodos(token) {
                 if (shouldKeep(checked, heading, cutoff)) {
                     todos.push({ id: b.id, text: plainText(b.to_do?.rich_text), checked, heading });
                 }
-                if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             } else if (t === 'bulleted_list_item' || t === 'numbered_list_item') {
                 if (b.has_children) todos.push(...await walkChildren(token, b.id, heading, 0, cutoff));
             }
